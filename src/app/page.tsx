@@ -7,10 +7,14 @@ import {
   FileText,
   LogIn,
   MessageCircle,
+  PhoneCall,
   ShieldCheck,
   Smartphone,
   TrendingUp
 } from "lucide-react"
+
+const whatsappHref =
+  "https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
 
 const benefits = [
   {
@@ -108,12 +112,9 @@ export default function Home() {
             </Link>
             <a
               className="button ghost"
-              href="https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
-              target="_blank"
-              rel="noreferrer"
+              href="#planes"
             >
-              <MessageCircle size={18} />
-              Contactarnos
+              Ver planes
             </a>
           </div>
         </div>
@@ -201,25 +202,22 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="landing-band landing-contact" id="contacto">
-        <div className="landing-section-heading">
-          <span className="landing-eyebrow">Contactanos</span>
-          <h2>Hablemos de como Cuadre puede encajar en tu negocio.</h2>
-          <p>
-            Si tienes un emprendimiento o quieres adaptar Cuadre para un cliente, podemos revisar
-            el flujo, el plan y los proximos ajustes.
-          </p>
-        </div>
-        <a
-          className="button gold"
-          href="https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <MessageCircle size={18} />
-          Escribir por WhatsApp
-        </a>
-      </section>
+      <a className="whatsapp-sales-card" href={whatsappHref} target="_blank" rel="noreferrer">
+        <span className="whatsapp-sales-note">
+          Para cualquier pregunta adicional, estamos aqui.
+        </span>
+        <span className="whatsapp-sales-box">
+          <span className="whatsapp-sales-icon">
+            <PhoneCall size={28} />
+          </span>
+          <span className="whatsapp-sales-copy">
+            <strong>Contactar con ventas</strong>
+            <span>Solo por WhatsApp</span>
+            <b>+57 300 000 0000</b>
+          </span>
+          <MessageCircle className="whatsapp-sales-mark" size={18} />
+        </span>
+      </a>
     </main>
   )
 }
