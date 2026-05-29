@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { IceCreamBowl, LogIn } from "lucide-react"
+import { LogIn, ShieldCheck } from "lucide-react"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
 
 export function LoginForm() {
@@ -73,10 +73,10 @@ export function LoginForm() {
     <main className="login-page">
       <section className="login-panel">
         <div className="login-brand">
-          <img src="/img/logo.jpeg" alt="Isa Cream" />
+          <img src="/img/logo.png" alt="Cuadre" />
           <div>
-            <h1>Isa Cream</h1>
-            <p>Control de inventario, ventas y reportes diarios.</p>
+            <h1>Cuadre</h1>
+            <p>Control de inventario, ventas y reportes para pequenos negocios.</p>
           </div>
         </div>
 
@@ -94,20 +94,20 @@ export function LoginForm() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@isacream.com"
+              placeholder="admin@cuadre.app"
               autoComplete="email"
               required
             />
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contraseña</label>
+            <label htmlFor="password">Contrasena</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Tu contraseña"
+              placeholder="Tu contrasena"
               autoComplete="current-password"
               required
             />
@@ -116,7 +116,7 @@ export function LoginForm() {
           {error && <div className="alert">{error}</div>}
 
           <button className="button primary" type="submit" disabled={loading}>
-            {loading ? <IceCreamBowl size={18} /> : <LogIn size={18} />}
+            {loading ? <ShieldCheck size={18} /> : <LogIn size={18} />}
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>

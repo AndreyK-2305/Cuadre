@@ -1,17 +1,26 @@
 :root {
-  --bg: #f7f9fd;
+  --bg: #0b0d18;
+  --bg-soft: #121528;
   --surface: #ffffff;
-  --surface-soft: #f1f6fb;
-  --ink: #182033;
-  --muted: #667085;
-  --line: #dce4ef;
-  --brand: #c23d88;
-  --brand-strong: #912365;
-  --blue: #214c8f;
-  --mint: #1d8d72;
-  --amber: #d97706;
-  --danger: #c24136;
-  --shadow: 0 18px 45px rgba(30, 41, 59, 0.08);
+  --surface-soft: #f4f2fa;
+  --surface-strong: #191a2d;
+  --ink: #181923;
+  --ink-on-dark: #f8f6ff;
+  --muted: #6d7281;
+  --muted-on-dark: #c6c0dc;
+  --line: #ddd9e8;
+  --line-dark: rgba(226, 221, 255, 0.18);
+  --brand: #7c6df2;
+  --brand-strong: #4b3ac4;
+  --brand-soft: #ece9ff;
+  --gold: #d9b463;
+  --gold-strong: #9d7026;
+  --blue: #2f70d8;
+  --mint: #16885f;
+  --amber: #c8872e;
+  --danger: #c94343;
+  --shadow: 0 18px 45px rgba(16, 20, 38, 0.1);
+  --shadow-dark: 0 24px 80px rgba(0, 0, 0, 0.34);
 }
 
 * {
@@ -25,9 +34,7 @@ html {
 body {
   margin: 0;
   color: var(--ink);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 249, 253, 0.92)),
-    var(--bg);
+  background: var(--surface-soft);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -60,6 +67,272 @@ a {
   min-height: 100vh;
 }
 
+.landing-page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink-on-dark);
+}
+
+.landing-hero {
+  min-height: 88svh;
+  display: grid;
+  align-content: space-between;
+  gap: 48px;
+  padding: 22px clamp(18px, 5vw, 72px) 74px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(8, 10, 19, 0.96) 0%, rgba(10, 12, 24, 0.82) 42%, rgba(9, 10, 18, 0.26) 100%),
+    url("/img/banner.png") center / cover no-repeat;
+}
+
+.landing-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 180px;
+  background: linear-gradient(180deg, rgba(11, 13, 24, 0), var(--bg));
+  z-index: -1;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-on-dark);
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+
+.landing-brand img {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line-dark);
+  box-shadow: 0 12px 26px rgba(124, 109, 242, 0.28);
+}
+
+.landing-login {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--line-dark);
+  color: var(--ink-on-dark);
+  text-decoration: none;
+}
+
+.landing-hero-content {
+  width: min(100%, 720px);
+  display: grid;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-eyebrow {
+  color: var(--gold);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-hero h1,
+.landing-section-heading h2,
+.proof-panel h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.landing-hero h1 {
+  font-size: clamp(2.45rem, 7vw, 5.8rem);
+  line-height: 0.95;
+  max-width: 820px;
+}
+
+.landing-hero p,
+.landing-section-heading p {
+  margin: 0;
+  color: var(--muted-on-dark);
+  font-size: 1.08rem;
+  line-height: 1.7;
+  max-width: 680px;
+}
+
+.landing-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.landing-band {
+  padding: 76px clamp(18px, 5vw, 72px);
+}
+
+.landing-intro,
+.landing-plans {
+  background: var(--bg);
+}
+
+.landing-section-heading {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto 28px;
+  max-width: 900px;
+  text-align: center;
+}
+
+.landing-section-heading h2,
+.proof-panel h2 {
+  color: var(--ink-on-dark);
+  font-size: clamp(1.9rem, 4vw, 3.35rem);
+  line-height: 1.05;
+}
+
+.benefit-grid,
+.pricing-grid,
+.proof-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.benefit-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.benefit-card,
+.pricing-card,
+.proof-grid div {
+  border: 1px solid var(--line-dark);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow-dark);
+}
+
+.benefit-card {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.benefit-card svg,
+.proof-grid svg {
+  color: var(--gold);
+}
+
+.benefit-card h3,
+.pricing-card h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.benefit-card p,
+.pricing-card p,
+.proof-grid span {
+  margin: 0;
+  color: var(--muted-on-dark);
+  line-height: 1.55;
+}
+
+.pricing-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  min-height: 390px;
+  padding: 22px;
+  display: grid;
+  align-content: space-between;
+  gap: 22px;
+}
+
+.pricing-card.featured {
+  border-color: rgba(217, 180, 99, 0.78);
+  background: linear-gradient(180deg, rgba(217, 180, 99, 0.18), rgba(255, 255, 255, 0.07));
+}
+
+.pricing-card strong {
+  display: block;
+  margin: 12px 0;
+  color: var(--gold);
+  font-size: 1.65rem;
+  line-height: 1.1;
+}
+
+.pricing-card ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pricing-card li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  color: var(--ink-on-dark);
+  line-height: 1.35;
+}
+
+.pricing-card li svg {
+  color: var(--brand);
+  margin-top: 1px;
+}
+
+.landing-proof {
+  background: linear-gradient(180deg, var(--bg), #131527);
+}
+
+.proof-panel {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 26px;
+}
+
+.proof-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.proof-grid div {
+  min-height: 160px;
+  padding: 22px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.proof-grid strong {
+  color: var(--ink-on-dark);
+  font-size: 1.05rem;
+}
+
+.landing-contact {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  background:
+    linear-gradient(180deg, rgba(19, 21, 39, 0.96), rgba(11, 13, 24, 1)),
+    var(--bg);
+  text-align: center;
+}
+
 .login-page {
   min-height: 100vh;
   display: grid;
@@ -68,17 +341,17 @@ a {
   overflow: hidden;
   position: relative;
   background:
-    radial-gradient(circle at 18% 18%, rgba(255, 196, 218, 0.9), transparent 28%),
-    radial-gradient(circle at 82% 12%, rgba(255, 208, 124, 0.82), transparent 26%),
-    radial-gradient(circle at 72% 86%, rgba(137, 201, 255, 0.72), transparent 30%),
-    linear-gradient(135deg, #fff7fb 0%, #f4f0ff 46%, #edf8ff 100%);
+    radial-gradient(circle at 18% 18%, rgba(124, 109, 242, 0.34), transparent 28%),
+    radial-gradient(circle at 82% 12%, rgba(217, 180, 99, 0.32), transparent 26%),
+    radial-gradient(circle at 72% 86%, rgba(47, 112, 216, 0.22), transparent 30%),
+    linear-gradient(135deg, #090b14 0%, #141528 48%, #101422 100%);
 }
 
 .login-page::before,
 .login-page::after {
   content: "";
   position: absolute;
-  border: 1px solid rgba(145, 35, 101, 0.18);
+  border: 1px solid rgba(217, 180, 99, 0.2);
   border-radius: 999px;
   pointer-events: none;
 }
@@ -107,7 +380,7 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 24px 70px rgba(55, 38, 72, 0.18);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
   position: relative;
   z-index: 1;
   backdrop-filter: blur(18px);
@@ -123,7 +396,7 @@ a {
 .login-brand img {
   width: 112px;
   border-radius: 8px;
-  box-shadow: 0 14px 28px rgba(145, 35, 101, 0.16);
+  box-shadow: 0 14px 28px rgba(124, 109, 242, 0.28);
 }
 
 .login-brand h1,
@@ -187,7 +460,7 @@ a {
 .field select:focus,
 .search-input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(194, 61, 136, 0.13);
+  box-shadow: 0 0 0 3px rgba(124, 109, 242, 0.16);
 }
 
 .button {
@@ -228,6 +501,19 @@ a {
   background: var(--mint);
 }
 
+.button.gold {
+  background: linear-gradient(135deg, var(--gold), #f0d996);
+  color: #17120a;
+  text-decoration: none;
+}
+
+.button.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-dark);
+  color: var(--ink-on-dark);
+  text-decoration: none;
+}
+
 .button.warn {
   background: var(--amber);
 }
@@ -242,7 +528,7 @@ a {
 }
 
 .button.subtle.active {
-  background: #fceaf5;
+  background: var(--brand-soft);
   color: var(--brand-strong);
 }
 
@@ -330,7 +616,7 @@ a {
 }
 
 .tab-button.active {
-  background: #fceaf5;
+  background: var(--brand-soft);
   color: var(--brand-strong);
 }
 
@@ -578,7 +864,7 @@ a {
 
 .summary-total {
   grid-column: 1 / -1;
-  background: #fff7fb;
+  background: #f7f3e8;
 }
 
 .summary-total strong {
@@ -835,6 +1121,22 @@ a {
 }
 
 @media (max-width: 980px) {
+  .landing-hero {
+    min-height: 86svh;
+    background:
+      linear-gradient(180deg, rgba(8, 10, 19, 0.94), rgba(9, 10, 18, 0.64)),
+      url("/img/banner.png") center / cover no-repeat;
+  }
+
+  .benefit-grid,
+  .proof-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard,
   .grid-two,
   .inventory-columns,
@@ -861,6 +1163,37 @@ a {
 }
 
 @media (max-width: 640px) {
+  .landing-hero {
+    min-height: 84svh;
+    padding: 18px 18px 58px;
+  }
+
+  .landing-nav {
+    align-items: flex-start;
+  }
+
+  .landing-brand span {
+    display: none;
+  }
+
+  .landing-hero h1 {
+    font-size: clamp(2.2rem, 13vw, 3.6rem);
+  }
+
+  .landing-actions,
+  .landing-actions .button,
+  .landing-contact .button {
+    width: 100%;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-card {
+    min-height: auto;
+  }
+
   .dashboard-main,
   .sidebar {
     padding: 18px;

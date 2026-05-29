@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Isa Cream",
-  description: "Inventario, ventas y reportes para Isa Cream"
+  title: "Cuadre",
+  description: "Control de inventario, ventas y reportes para pequenos negocios"
 }
 
 export default function RootLayout({

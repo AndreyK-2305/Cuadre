@@ -84,16 +84,16 @@ export function DashboardShell() {
   }
 
   if (loading) {
-    return <main className="loading-screen">Cargando Isa Cream...</main>
+    return <main className="loading-screen">Cargando Cuadre...</main>
   }
 
   return (
     <main className="dashboard">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src="/img/logo.jpeg" alt="Isa Cream" />
+          <img src="/img/logo.png" alt="Cuadre" />
           <div>
-            <strong>Isa Cream</strong>
+            <strong>Cuadre</strong>
             <span>{session?.user.email}</span>
           </div>
         </div>
