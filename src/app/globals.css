@@ -833,6 +833,11 @@ a {
   top: 24px;
 }
 
+.mobile-sale-bar,
+.checkout-mobile-footer {
+  display: none;
+}
+
 .cart-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1220,5 +1225,99 @@ a {
 
   .stock-controls {
     grid-template-columns: 1fr;
+  }
+
+  .sales-module.has-mobile-cart {
+    padding-bottom: 92px;
+  }
+
+  .mobile-sale-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 40;
+    min-height: 72px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid rgba(217, 180, 99, 0.32);
+    border-radius: 8px;
+    background: linear-gradient(135deg, #15172a, #0e101d);
+    color: var(--ink-on-dark);
+    box-shadow: var(--shadow-dark);
+  }
+
+  .mobile-sale-bar div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .mobile-sale-bar span {
+    color: var(--muted-on-dark);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .mobile-sale-bar strong {
+    overflow: hidden;
+    color: var(--gold);
+    font-size: 1.15rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-sale-bar .button {
+    min-width: 168px;
+  }
+
+  .checkout-panel {
+    padding-bottom: 0;
+  }
+
+  .checkout-charge-main {
+    display: none;
+  }
+
+  .checkout-mobile-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    margin: 18px -20px 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -14px 34px rgba(16, 20, 38, 0.12);
+  }
+
+  .checkout-mobile-footer div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .checkout-mobile-footer span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .checkout-mobile-footer strong {
+    overflow: hidden;
+    color: var(--brand-strong);
+    font-size: 1.15rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .checkout-mobile-footer .button {
+    min-width: 168px;
   }
 }

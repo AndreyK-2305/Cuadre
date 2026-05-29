@@ -136,7 +136,7 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
   }
 
   return (
-    <div className="module">
+    <div className={`module sales-module ${cart.length > 0 ? "has-mobile-cart" : ""}`}>
       <div className="module-title">
         <div>
           <h2>Carrito de venta</h2>
@@ -255,6 +255,19 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
           </div>
         </aside>
       </div>
+
+      {cart.length > 0 && (
+        <div className="mobile-sale-bar" role="region" aria-label="Venta actual">
+          <div>
+            <span>{cartQuantity} unidades</span>
+            <strong>{formatCurrency(cartTotal)}</strong>
+          </div>
+          <button className="button mint" type="button" onClick={() => setIsCheckoutOpen(true)}>
+            <ReceiptText size={18} />
+            Proceder al pago
+          </button>
+        </div>
+      )}
 
       {isCheckoutOpen && (
         <CheckoutModal
@@ -431,12 +444,28 @@ function CheckoutModal({
                 <strong>{formatCurrency(change)}</strong>
               </div>
 
-              <button className="button mint" type="button" onClick={onCharge} disabled={!canCharge}>
+              <button
+                className="button mint checkout-charge-main"
+                type="button"
+                onClick={onCharge}
+                disabled={!canCharge}
+              >
                 {saving ? <ReceiptText size={18} /> : <CheckCircle2 size={18} />}
                 {saving ? "Guardando..." : "Cobrar y guardar venta"}
               </button>
             </div>
           </aside>
+        </div>
+
+        <div className="checkout-mobile-footer">
+          <div>
+            <span>Total</span>
+            <strong>{formatCurrency(cartTotal)}</strong>
+          </div>
+          <button className="button mint" type="button" onClick={onCharge} disabled={!canCharge}>
+            {saving ? <ReceiptText size={18} /> : <CheckCircle2 size={18} />}
+            {saving ? "Guardando..." : "Cobrar y guardar"}
+          </button>
         </div>
       </section>
     </div>

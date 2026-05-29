@@ -99,7 +99,7 @@ export const seedProducts: SeedProduct[] = [
     activo: true
   },
   {
-    nombre: "Canasta ISA",
+    nombre: "Canasta Especial",
     descripcion: "Tres sabores de helado con chantilly y cereza.",
     tipo_item: "producto",
     precio: 12000,
