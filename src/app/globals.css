@@ -4249,37 +4249,25 @@ input:focus-visible,
 
 @media (max-width: 640px) {
   .landing-page .pricing-grid {
-    display: flex;
-    gap: 0.62rem;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.42rem;
     max-width: none;
-    margin-inline: -18px;
-    padding: 0.2rem 18px 0.72rem;
-    overflow-x: auto;
-    scroll-padding-inline: 18px;
-    scroll-snap-type: x mandatory;
-  }
-
-  .landing-page .pricing-grid::-webkit-scrollbar {
-    height: 4px;
-  }
-
-  .landing-page .pricing-grid::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(21, 94, 117, 0.18);
+    margin-inline: 0;
+    padding: 0.2rem 0 0.72rem;
   }
 
   .landing-page .pricing-card {
-    min-height: 142px;
-    flex: 0 0 min(42vw, 148px);
+    min-width: 0;
+    min-height: 92px;
     align-content: start;
     gap: 0.36rem;
-    padding: 0.88rem;
-    border-radius: 14px;
-    scroll-snap-align: start;
+    padding: 0.62rem;
+    border-radius: 12px;
   }
 
   .landing-page .pricing-card.featured {
-    padding-top: 2.48rem;
+    padding-top: 1.82rem;
   }
 
   .landing-page .pricing-card.is-selected {
@@ -4291,22 +4279,29 @@ input:focus-visible,
 
   .landing-page .pricing-card h3 {
     color: #16221f;
-    font-size: 0.92rem;
+    font-size: 0.72rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
   }
 
   .landing-page .pricing-card strong {
-    margin: 0.48rem 0 0;
-    color: #155e75;
-    font-size: 1.02rem;
+    display: none;
   }
 
-  .landing-page .pricing-card.is-selected h3,
-  .landing-page .pricing-card.is-selected strong {
+  .landing-page .pricing-card.is-selected h3 {
     color: #ffffff;
   }
 
   .landing-page .pricing-card.is-selected .pricing-selection-mark {
     color: #f5d58c;
+  }
+
+  .landing-page .pricing-selection-mark {
+    position: absolute;
+    right: 0.48rem;
+    bottom: 0.48rem;
+    width: 15px;
+    height: 15px;
   }
 
   .landing-page .pricing-card p,
@@ -4316,11 +4311,11 @@ input:focus-visible,
 
   .landing-page .plan-badge {
     position: absolute;
-    top: 0.62rem;
-    left: 0.7rem;
-    min-height: 22px;
-    padding-inline: 0.5rem;
-    font-size: 0.58rem;
+    top: 0.42rem;
+    left: 0.46rem;
+    min-height: 18px;
+    padding-inline: 0.32rem;
+    font-size: 0.48rem;
     letter-spacing: 0;
   }
 
