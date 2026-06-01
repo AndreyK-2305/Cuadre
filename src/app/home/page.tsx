@@ -16,7 +16,8 @@ import {
   TrendingUp
 } from "lucide-react"
 
-const activationHref = "/login"
+const whatsappHref =
+  "https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
 
 const modules = [
   {
@@ -252,20 +253,20 @@ export default function Home() {
         </div>
       </section>
 
-      <Link className="whatsapp-sales-card" href={activationHref}>
-        <span className="whatsapp-sales-note">¿Ya tienes acceso autorizado?</span>
+      <a className="whatsapp-sales-card" href={whatsappHref} target="_blank" rel="noreferrer">
+        <span className="whatsapp-sales-note">Para cualquier pregunta adicional, estamos aquí.</span>
         <span className="whatsapp-sales-box">
           <span className="whatsapp-sales-icon">
             <PhoneCall size={28} />
           </span>
           <span className="whatsapp-sales-copy">
-            <strong>Entrar a Cuadre</strong>
-            <span>Acceso seguro</span>
-            <b>Usa tu correo autorizado</b>
+            <strong>Contactar con ventas</strong>
+            <span>Solo por WhatsApp</span>
+            <b>+57 300 000 0000</b>
           </span>
           <MessageCircle className="whatsapp-sales-mark" size={18} />
         </span>
-      </Link>
+      </a>
     </main>
   )
 }

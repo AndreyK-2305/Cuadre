@@ -3595,3 +3595,183 @@ input:focus-visible,
   box-shadow: 0 0 0 0.28rem rgba(52, 211, 153, 0.13);
   vertical-align: 0.08rem;
 }
+
+/* Mobile home presentation: keep the refreshed landing coherent after legacy rules */
+@media (max-width: 640px) {
+  .landing-hero {
+    min-height: auto;
+    gap: 1.25rem;
+    padding: 10px 10px 2rem;
+    background:
+      linear-gradient(155deg, rgba(247, 243, 235, 0.96), rgba(238, 244, 241, 0.9)),
+      url("/img/banner.png") center / cover no-repeat;
+  }
+
+  .landing-hero::before {
+    inset: 6px;
+    border-radius: 22px;
+  }
+
+  .landing-hero::after {
+    height: 5rem;
+    background: linear-gradient(180deg, rgba(247, 243, 235, 0), #f7f3eb);
+  }
+
+  .landing-nav {
+    align-items: center;
+    padding: 0.42rem;
+    border-radius: 20px;
+  }
+
+  .landing-brand span {
+    display: grid;
+  }
+
+  .landing-brand small {
+    display: none;
+  }
+
+  .landing-brand img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .landing-login {
+    min-height: 36px;
+    padding-inline: 0.7rem;
+    font-size: 0.84rem;
+  }
+
+  .landing-hero-grid {
+    gap: 1rem;
+  }
+
+  .landing-hero-content {
+    gap: 0.78rem;
+    padding-inline: 0.35rem;
+  }
+
+  .landing-eyebrow {
+    font-size: 0.66rem;
+    line-height: 1.35;
+  }
+
+  .landing-hero h1 {
+    max-width: 12ch;
+    font-size: clamp(2.12rem, 11.5vw, 3.1rem);
+    line-height: 0.98;
+  }
+
+  .landing-hero p {
+    font-size: 0.94rem;
+    line-height: 1.52;
+  }
+
+  .landing-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.52rem;
+  }
+
+  .landing-actions .button {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .landing-trust-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.42rem;
+    margin-top: 0;
+  }
+
+  .landing-trust-row span {
+    width: auto;
+    min-height: 0;
+    align-items: flex-start;
+    padding: 0.52rem;
+    border-radius: 14px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .landing-product-card {
+    gap: 0.58rem;
+    padding: 0.72rem;
+    border-radius: 20px;
+  }
+
+  .product-card-top,
+  .product-checkout,
+  .product-list div,
+  .product-metrics div {
+    border-radius: 14px;
+  }
+
+  .product-card-top,
+  .product-checkout {
+    padding: 0.66rem;
+  }
+
+  .product-metrics {
+    gap: 0.5rem;
+  }
+
+  .product-metrics div {
+    gap: 0.12rem;
+    padding: 0.62rem;
+  }
+
+  .product-metrics span {
+    font-size: 0.66rem;
+  }
+
+  .product-metrics strong {
+    font-size: 1.22rem;
+  }
+
+  .product-list {
+    gap: 0.42rem;
+  }
+
+  .product-list div {
+    padding: 0.58rem 0.66rem;
+    font-size: 0.84rem;
+  }
+
+  .product-list div:nth-child(3) {
+    display: none;
+  }
+
+  .product-checkout {
+    font-size: 0.8rem;
+  }
+
+  .whatsapp-sales-card {
+    width: min(208px, calc(100vw - 24px));
+  }
+
+  .whatsapp-sales-box {
+    min-height: 58px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .whatsapp-sales-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .whatsapp-sales-copy strong {
+    font-size: 0.68rem;
+  }
+
+  .whatsapp-sales-copy span {
+    font-size: 0.64rem;
+  }
+
+  .whatsapp-sales-copy b {
+    font-size: 0.78rem;
+  }
+}
