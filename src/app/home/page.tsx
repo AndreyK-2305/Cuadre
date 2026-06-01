@@ -4,12 +4,9 @@ import {
   BadgeDollarSign,
   BarChart3,
   Boxes,
-  CheckCircle2,
   ClipboardList,
   FileText,
-  HeartHandshake,
   MessageCircle,
-  PhoneCall,
   ReceiptText,
   ShieldCheck,
   ShoppingCart,
@@ -18,9 +15,7 @@ import {
   TrendingUp
 } from "lucide-react"
 import { HomeNav } from "@/components/home/HomeNav"
-
-const whatsappHref =
-  "https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
+import { HomeSalesExperience } from "@/components/home/HomeSalesExperience"
 
 const modules = [
   {
@@ -37,34 +32,6 @@ const modules = [
     title: "Reportes útiles",
     text: "Lee resultados por periodo y prepara decisiones sin hojas sueltas.",
     icon: FileText
-  }
-]
-
-const plans = [
-  {
-    name: "Gratis",
-    price: "$0",
-    caption: "Para validar el flujo con un catálogo pequeño.",
-    features: ["Hasta 10 productos", "Ventas del día", "Inventario base", "Incluye anuncios"]
-  },
-  {
-    name: "Básico",
-    price: "$20.000 COP",
-    caption: "Para negocios que ya necesitan operar sin límite de productos.",
-    featured: true,
-    features: ["Inventario ilimitado", "Reportes semanales", "2 descargas PDF", "Soporte de arranque"]
-  },
-  {
-    name: "Lite",
-    price: "$30.000 COP",
-    caption: "Para equipos que consultan y descargan reportes con frecuencia.",
-    features: ["Todo lo del Básico", "PDF ilimitados", "Consulta hasta 1 mes", "Mejor lectura de caja"]
-  },
-  {
-    name: "Emprendedor",
-    price: "A medida",
-    caption: "Para negocios que necesitan histórico, gráficos e implementación guiada.",
-    features: ["Historial global", "Métricas avanzadas", "Productos destacados", "Acompañamiento"]
   }
 ]
 
@@ -89,11 +56,11 @@ const adoptionAdvantages = [
 export default function Home() {
   return (
     <main className="landing-page">
+      <HomeNav />
+
       <section className="landing-hero">
         <div className="landing-glow landing-glow-left" aria-hidden="true" />
         <div className="landing-glow landing-glow-right" aria-hidden="true" />
-
-        <HomeNav />
 
         <div className="landing-hero-grid">
           <div className="landing-hero-content">
@@ -203,127 +170,33 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="landing-band landing-plans" id="planes">
-        <div className="landing-section-heading split">
-          <div>
-            <span className="landing-eyebrow">Planes competitivos</span>
-            <h2>Empieza con lo necesario y escala cuando el negocio lo pida.</h2>
-          </div>
-          <p>
-            Las opciones mantienen una promesa simple: ordenar la operación diaria y luego sumar
-            reportes, histórico y acompañamiento según el tamaño del cliente.
-          </p>
-        </div>
-
-        <div className="pricing-grid">
-          {plans.map((plan) => (
-            <article className={`pricing-card ${plan.featured ? "featured" : ""}`} key={plan.name}>
-              {plan.featured ? <span className="plan-badge">Recomendado</span> : null}
+      <HomeSalesExperience>
+        <section className="landing-band landing-proof">
+          <div className="proof-panel">
+            <div>
+              <span className="landing-eyebrow">Preparado para crecer</span>
+              <h2>Una base comercial flexible, no una plantilla amarrada a un solo negocio.</h2>
+            </div>
+            <div className="proof-grid">
               <div>
-                <h3>{plan.name}</h3>
-                <strong>{plan.price}</strong>
-                <p>{plan.caption}</p>
+                <ClipboardList size={24} />
+                <strong>Configuración por cliente</strong>
+                <span>Lenguaje y límites listos para adaptarse a cada operación.</span>
               </div>
-              <ul>
-                {plan.features.map((feature) => (
-                  <li key={feature}>
-                    <CheckCircle2 size={17} />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="landing-band landing-proof">
-        <div className="proof-panel">
-          <div>
-            <span className="landing-eyebrow">Preparado para crecer</span>
-            <h2>Una base comercial flexible, no una plantilla amarrada a un solo negocio.</h2>
-          </div>
-          <div className="proof-grid">
-            <div>
-              <ClipboardList size={24} />
-              <strong>Configuración por cliente</strong>
-              <span>Lenguaje y límites listos para adaptarse a cada operación.</span>
-            </div>
-            <div>
-              <BarChart3 size={24} />
-              <strong>Lectura accionable</strong>
-              <span>Indicadores simples para actuar rápido sin sobrecargar al usuario.</span>
-            </div>
-            <div>
-              <TrendingUp size={24} />
-              <strong>Ruta de planes</strong>
-              <span>La experiencia puede crecer hacia reportes, histórico e integraciones.</span>
+              <div>
+                <BarChart3 size={24} />
+                <strong>Lectura accionable</strong>
+                <span>Indicadores simples para actuar rápido sin sobrecargar al usuario.</span>
+              </div>
+              <div>
+                <TrendingUp size={24} />
+                <strong>Ruta de planes</strong>
+                <span>La experiencia puede crecer hacia reportes, histórico e integraciones.</span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <footer className="landing-footer" id="nosotros">
-        <div className="landing-footer-main">
-          <div className="landing-footer-about">
-            <Link className="landing-footer-brand" href="/home">
-              <img src="/img/logo.png" alt="Logo de Cuadre" />
-              <span>
-                <strong>Cuadre</strong>
-                <small>Operaciones comerciales</small>
-              </span>
-            </Link>
-            <p>
-              Somos un equipo pequeño que disfruta convertir tareas repetitivas en herramientas
-              claras. Creamos Cuadre para que administrar un negocio se sienta más cercano, menos
-              pesado y listo para crecer con cada emprendimiento.
-            </p>
-            <span className="landing-footer-note">
-              <HeartHandshake size={17} aria-hidden="true" />
-              Hecho pensando en negocios que avanzan paso a paso.
-            </span>
-          </div>
-
-          <div className="landing-footer-column">
-            <strong>Explora</strong>
-            <a href="#flujo">Cómo funciona</a>
-            <a href="#planes">Planes</a>
-            <Link href="/login">Acceso al panel</Link>
-          </div>
-
-          <div className="landing-footer-column landing-footer-contact">
-            <strong>Hablemos</strong>
-            <p>Cuéntanos qué vendes y qué necesitas ordenar primero.</p>
-            <a href={whatsappHref} target="_blank" rel="noreferrer">
-              <MessageCircle size={17} aria-hidden="true" />
-              WhatsApp de ventas
-            </a>
-          </div>
-        </div>
-
-        <div className="landing-footer-bottom" id="page-end">
-          <span>© {new Date().getFullYear()} Cuadre. Una base flexible para pequeños negocios.</span>
-          <Link href="/login">
-            Entrar a Cuadre
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      </footer>
-
-      <a className="whatsapp-sales-card" href={whatsappHref} target="_blank" rel="noreferrer">
-        <span className="whatsapp-sales-note">Para cualquier pregunta adicional, estamos aquí.</span>
-        <span className="whatsapp-sales-box">
-          <span className="whatsapp-sales-icon">
-            <PhoneCall size={28} />
-          </span>
-          <span className="whatsapp-sales-copy">
-            <strong>Contactar con ventas</strong>
-            <span>Solo por WhatsApp</span>
-            <b>+57 300 000 0000</b>
-          </span>
-          <MessageCircle className="whatsapp-sales-mark" size={18} />
-        </span>
-      </a>
+        </section>
+      </HomeSalesExperience>
     </main>
   )
 }

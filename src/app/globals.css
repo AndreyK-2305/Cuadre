@@ -4175,3 +4175,230 @@ input:focus-visible,
     transition-duration: 1ms !important;
   }
 }
+
+/* Home plan selector and top-level navigation stacking */
+.landing-nav-dock {
+  z-index: 1000;
+}
+
+.landing-nav-dock .landing-nav {
+  background: #ffffff;
+  box-shadow: 0 16px 42px rgba(22, 34, 31, 0.16);
+}
+
+.landing-page-end-sentinel {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: #13201f;
+}
+
+.pricing-card {
+  position: relative;
+}
+
+.pricing-card-select {
+  width: 100%;
+  display: grid;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.pricing-card-select:focus-visible {
+  border-radius: 8px;
+  outline: 3px solid rgba(21, 94, 117, 0.28);
+  outline-offset: 5px;
+}
+
+.pricing-card-summary {
+  display: grid;
+}
+
+.pricing-card-title-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pricing-selection-mark {
+  flex: 0 0 auto;
+  color: #155e75;
+  opacity: 0;
+  transition: opacity var(--duration-soft) var(--ease-standard);
+}
+
+.pricing-card.is-selected {
+  border-color: rgba(21, 94, 117, 0.46);
+  box-shadow: 0 24px 66px rgba(21, 94, 117, 0.17);
+  transform: translateY(-3px);
+}
+
+.pricing-card.is-selected .pricing-selection-mark {
+  opacity: 1;
+}
+
+.pricing-mobile-details {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .landing-page .pricing-grid {
+    display: flex;
+    gap: 0.62rem;
+    max-width: none;
+    margin-inline: -18px;
+    padding: 0.2rem 18px 0.72rem;
+    overflow-x: auto;
+    scroll-padding-inline: 18px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .landing-page .pricing-grid::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .landing-page .pricing-grid::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(21, 94, 117, 0.18);
+  }
+
+  .landing-page .pricing-card {
+    min-height: 142px;
+    flex: 0 0 min(42vw, 148px);
+    align-content: start;
+    gap: 0.36rem;
+    padding: 0.88rem;
+    border-radius: 14px;
+    scroll-snap-align: start;
+  }
+
+  .landing-page .pricing-card.featured {
+    padding-top: 2.48rem;
+  }
+
+  .landing-page .pricing-card.is-selected {
+    border-color: rgba(21, 94, 117, 0.72);
+    background: linear-gradient(145deg, #155e75, #123e54);
+    box-shadow: 0 18px 38px rgba(21, 94, 117, 0.24);
+    transform: translateY(-2px);
+  }
+
+  .landing-page .pricing-card h3 {
+    color: #16221f;
+    font-size: 0.92rem;
+  }
+
+  .landing-page .pricing-card strong {
+    margin: 0.48rem 0 0;
+    color: #155e75;
+    font-size: 1.02rem;
+  }
+
+  .landing-page .pricing-card.is-selected h3,
+  .landing-page .pricing-card.is-selected strong {
+    color: #ffffff;
+  }
+
+  .landing-page .pricing-card.is-selected .pricing-selection-mark {
+    color: #f5d58c;
+  }
+
+  .landing-page .pricing-card p,
+  .landing-page .pricing-desktop-features {
+    display: none;
+  }
+
+  .landing-page .plan-badge {
+    position: absolute;
+    top: 0.62rem;
+    left: 0.7rem;
+    min-height: 22px;
+    padding-inline: 0.5rem;
+    font-size: 0.58rem;
+    letter-spacing: 0;
+  }
+
+  .pricing-mobile-details {
+    max-width: 34rem;
+    display: grid;
+    gap: 0.92rem;
+    margin: 0.54rem auto 0;
+    padding: 1rem;
+    border: 1px solid rgba(21, 94, 117, 0.14);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.84);
+    box-shadow: 0 18px 42px rgba(22, 34, 31, 0.09);
+  }
+
+  .pricing-mobile-details-heading {
+    display: flex;
+    gap: 0.8rem;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .pricing-mobile-details-heading span {
+    display: grid;
+    gap: 0.18rem;
+  }
+
+  .pricing-mobile-details-heading small {
+    color: #63706c;
+    font-size: 0.7rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .pricing-mobile-details-heading strong {
+    color: #16221f;
+    font-size: 1.3rem;
+  }
+
+  .pricing-mobile-details-heading b {
+    color: #155e75;
+    font-size: 1.08rem;
+    text-align: right;
+  }
+
+  .pricing-mobile-details p {
+    margin: 0;
+    color: #63706c;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .pricing-mobile-details ul {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pricing-mobile-details li {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 0.56rem;
+    padding: 0.68rem 0;
+    border-top: 1px solid rgba(21, 94, 117, 0.12);
+    color: #16221f;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .pricing-mobile-details li svg {
+    margin-top: 1px;
+    color: #155e75;
+  }
+
+  .pricing-mobile-details .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
