@@ -1,7 +1,18 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckCircle2, Minus, Plus, ReceiptText, Search, Trash2, X } from "lucide-react"
+import {
+  CheckCircle2,
+  Minus,
+  PackageSearch,
+  Plus,
+  ReceiptText,
+  Search,
+  ShoppingBag,
+  Trash2,
+  WalletCards,
+  X
+} from "lucide-react"
 import { formatCurrency, saleLabel } from "@/lib/format"
 import { supabase } from "@/lib/supabase/client"
 import type { CartItem, Product, RegisterSaleResult } from "@/types/app"
@@ -64,6 +75,14 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
     [cart]
   )
   const cartQuantity = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart])
+  const lowStockCount = useMemo(
+    () => products.filter((product) => product.cantidad_stock > 0 && product.cantidad_stock <= 5).length,
+    [products]
+  )
+
+  const visibleProductsLabel = search.trim()
+    ? `${filteredProducts.length} resultados`
+    : `${filteredProducts.length} disponibles`
 
   const change = Math.max(cashReceived - cartTotal, 0)
   const canCharge = cart.length > 0 && cashReceived >= cartTotal && !saving
@@ -137,35 +156,61 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
 
   return (
     <div className={`module sales-module ${cart.length > 0 ? "has-mobile-cart" : ""}`}>
-      <div className="module-title">
-        <div>
-          <h2>Carrito de venta</h2>
-          <p>Selecciona productos activos, cobra en efectivo y registra la venta del dia.</p>
+      <section className="sales-command" aria-labelledby="ventas-heading">
+        <div className="sales-command-copy">
+          <span className="module-kicker">Punto de venta</span>
+          <h2 id="ventas-heading">Venta rapida con control de caja</h2>
+          <p>
+            Busca, agrega productos y cobra en efectivo con el resumen siempre visible para reducir errores.
+          </p>
         </div>
-      </div>
+
+        <div className="sales-insights" aria-label="Resumen de ventas">
+          <div className="insight-card">
+            <ShoppingBag size={18} />
+            <span>Catalogo</span>
+            <strong>{products.length}</strong>
+          </div>
+          <div className="insight-card warn">
+            <PackageSearch size={18} />
+            <span>Stock bajo</span>
+            <strong>{lowStockCount}</strong>
+          </div>
+          <div className="insight-card accent">
+            <WalletCards size={18} />
+            <span>En carrito</span>
+            <strong>{cartQuantity}</strong>
+          </div>
+        </div>
+      </section>
 
       {error && <div className="alert">{error}</div>}
       {receipt && (
         <div className="notice">
-          {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por{" "}
+          {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por {" "}
           {formatCurrency(receipt.total)}. Cambio: {formatCurrency(receipt.cambio)}.
         </div>
       )}
 
       <div className="sales-layout">
-        <section className="panel product-list">
-          <div className="field">
-            <label htmlFor="buscar-venta">Buscar para vender</label>
-            <div className="actions-row">
-              <Search size={18} />
+        <section className="panel product-list" aria-labelledby="catalogo-heading">
+          <div className="catalog-header">
+            <div>
+              <span className="module-kicker">Catalogo activo</span>
+              <h2 id="catalogo-heading">Productos para vender</h2>
+              <p>{visibleProductsLabel}</p>
+            </div>
+
+            <label className="search-box" htmlFor="buscar-venta">
+              <Search size={18} aria-hidden="true" />
               <input
                 id="buscar-venta"
                 className="search-input"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Producto o tipo"
+                placeholder="Buscar producto o unidad"
               />
-            </div>
+            </label>
           </div>
 
           {loading && <div className="empty-state">Cargando productos activos...</div>}
@@ -176,27 +221,40 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
           <div className="product-sale-grid">
             {!loading &&
               filteredProducts.map((product) => {
+                const stockState =
+                  product.cantidad_stock <= 0 ? "off" : product.cantidad_stock <= 5 ? "low" : "active"
+                const stockLabel =
+                  product.cantidad_stock <= 0
+                    ? "Sin stock"
+                    : product.cantidad_stock <= 5
+                      ? "Stock bajo"
+                      : "Disponible"
+
                 return (
                   <article className="sale-card" key={product.id}>
-                    <div>
-                      <div className="product-name">
-                        <h3>{product.nombre}</h3>
-                      </div>
+                    <div className="sale-card-topline">
+                      <span className={`stock-badge ${stockState}`}>{stockLabel}</span>
+                      <span className="muted">{product.cantidad_stock} en stock</span>
+                    </div>
+
+                    <div className="product-name">
+                      <h3>{product.nombre}</h3>
                       <p className="muted">{product.descripcion || product.tipo_unidad}</p>
                     </div>
 
                     <footer>
                       <div>
                         <strong>{formatCurrency(product.precio)}</strong>
-                        <div className="muted">{product.tipo_unidad}</div>
+                        <div className="muted">por {product.tipo_unidad}</div>
                       </div>
                       <button
-                        className="button primary icon"
+                        className="button primary add-sale-button"
                         type="button"
                         onClick={() => addToCart(product)}
                         title={`Agregar ${product.nombre}`}
                       >
                         <Plus size={18} />
+                        Agregar
                       </button>
                     </footer>
                   </article>
@@ -205,10 +263,13 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
           </div>
         </section>
 
-        <aside className="panel cart-panel">
-          <div className="section-title">
-            <h2>Venta actual</h2>
-            <p>{cart.length === 0 ? "Agrega productos para cobrar." : "Resumen del carrito."}</p>
+        <aside className="panel cart-panel" aria-labelledby="venta-actual-heading">
+          <div className="section-title cart-title-row">
+            <div>
+              <span className="module-kicker">Caja</span>
+              <h2 id="venta-actual-heading">Venta actual</h2>
+              <p>{cart.length === 0 ? "Agrega productos para cobrar." : "Resumen listo para pago."}</p>
+            </div>
           </div>
 
           <div className="cart-summary">
@@ -226,6 +287,14 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
             </div>
           </div>
 
+          {cart.length === 0 && (
+            <div className="cart-empty-state">
+              <ReceiptText size={24} />
+              <strong>Sin productos todavia</strong>
+              <span>Elige un producto del catalogo para iniciar la venta.</span>
+            </div>
+          )}
+
           {cart.length > 0 && (
             <div className="cart-summary-list" aria-label="Resumen de productos en el carrito">
               {cart.map((item) => (
@@ -237,7 +306,7 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
             </div>
           )}
 
-          <div className="actions-row">
+          <div className="actions-row cart-actions-row">
             <button
               className="button mint"
               type="button"
@@ -350,7 +419,7 @@ function CheckoutModal({
                   <div>
                     <h3>{item.product.nombre}</h3>
                     <p className="muted">
-                      {formatCurrency(item.product.precio)} x {item.quantity} ={" "}
+                      {formatCurrency(item.product.precio)} x {item.quantity} = {" "}
                       {formatCurrency(item.product.precio * item.quantity)}
                     </p>
                   </div>

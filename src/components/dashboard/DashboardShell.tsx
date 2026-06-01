@@ -1,33 +1,34 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Session } from "@supabase/supabase-js"
-import type { LucideIcon } from "lucide-react"
-import { BarChart3, Boxes, LogOut, ShoppingCart } from "lucide-react"
+import { BadgeCheck, BarChart3, Boxes, CalendarDays, LogOut, ShoppingCart } from "lucide-react"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
-import { InventoryModule } from "@/components/dashboard/InventoryModule"
-import { ReportsModule } from "@/components/dashboard/ReportsModule"
-import { SalesModule } from "@/components/dashboard/SalesModule"
+import { SalesModule } from "./SalesModule"
+import { InventoryModule } from "./InventoryModule"
+import { ReportsModule } from "./ReportsModule"
 
-type ModuleKey = "inventario" | "ventas" | "reportes"
+type ActiveModule = "ventas" | "inventario" | "reportes"
 
-const modules: Array<{
-  key: ModuleKey
-  label: string
-  icon: LucideIcon
-}> = [
-  { key: "inventario", label: "Inventario", icon: Boxes },
-  { key: "ventas", label: "Ventas", icon: ShoppingCart },
-  { key: "reportes", label: "Reportes", icon: BarChart3 }
+const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+  { id: "ventas", label: "Ventas", icon: ShoppingCart },
+  { id: "inventario", label: "Inventario", icon: Boxes },
+  { id: "reportes", label: "Reportes", icon: BarChart3 }
 ]
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#155e75",
+  "accentWarm": "#d97706",
+  "density": 1,
+  "panelRadius": 16
+}/*EDITMODE-END*/
 
 export function DashboardShell() {
   const router = useRouter()
-  const [session, setSession] = useState<Session | null>(null)
+  const [activeModule, setActiveModule] = useState<ActiveModule>("ventas")
+  const [refreshSignal, setRefreshSignal] = useState(0)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeModule, setActiveModule] = useState<ModuleKey>("ventas")
-  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -46,7 +47,6 @@ export function DashboardShell() {
         return
       }
 
-      setSession(data.session)
       setLoading(false)
     }
 
@@ -57,7 +57,8 @@ export function DashboardShell() {
         router.replace("/login")
         return
       }
-      setSession(nextSession)
+
+      if (mounted) setLoading(false)
     })
 
     void loadSession()
@@ -68,45 +69,82 @@ export function DashboardShell() {
     }
   }, [router])
 
+  const handleSignOut = async () => {
+    if (isSigningOut) return
+
+    setIsSigningOut(true)
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      setIsSigningOut(false)
+      window.alert("No se pudo cerrar la sesion. Intenta nuevamente.")
+      return
+    }
+
+    router.replace("/login")
+  }
+
+  const handleDataChanged = useCallback(() => {
+    setRefreshSignal((current) => current + 1)
+  }, [])
+
   const title = useMemo(() => {
     if (activeModule === "inventario") return "Inventario"
     if (activeModule === "reportes") return "Reportes"
     return "Registro de venta"
   }, [activeModule])
 
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    router.replace("/login")
-  }
+  const subtitle = useMemo(() => {
+    if (activeModule === "inventario") return "Controla existencias, ajustes y productos activos desde un solo lugar."
+    if (activeModule === "reportes") return "Consulta ventas, caja y movimientos para tomar decisiones rapidas."
+    return "Ventas rapidas, inventario visible y cierre de caja sin friccion."
+  }, [activeModule])
 
-  function refreshData() {
-    setRevision((current) => current + 1)
-  }
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("es-CO", {
+        weekday: "long",
+        day: "numeric",
+        month: "short"
+      }).format(new Date()),
+    []
+  )
+
+  const activeContent = useMemo(() => {
+    if (activeModule === "inventario") return <InventoryModule onChanged={handleDataChanged} />
+    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} />
+    return <SalesModule refreshSignal={refreshSignal} onSaleCompleted={handleDataChanged} />
+  }, [activeModule, handleDataChanged, refreshSignal])
 
   if (loading) {
     return <main className="loading-screen">Cargando Cuadre...</main>
   }
 
   return (
-    <main className="dashboard">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <img src="/img/logo.png" alt="Cuadre" />
+    <main className="dashboard" data-design-density={TWEAK_DEFAULTS.density}>
+      <aside className="sidebar" aria-label="Navegacion principal">
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            C
+          </span>
           <div>
             <strong>Cuadre</strong>
-            <span>{session?.user.email}</span>
+            <small>Operaciones comerciales</small>
           </div>
         </div>
 
-        <nav className="tabs" aria-label="Modulos principales">
+        <nav className="nav-list" aria-label="Modulos">
           {modules.map((module) => {
             const Icon = module.icon
+            const isActive = activeModule === module.id
+
             return (
               <button
-                key={module.key}
-                className={`tab-button ${activeModule === module.key ? "active" : ""}`}
+                key={module.id}
                 type="button"
-                onClick={() => setActiveModule(module.key)}
+                className={isActive ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveModule(module.id)}
+                aria-pressed={isActive}
               >
                 <Icon size={19} />
                 {module.label}
@@ -115,25 +153,43 @@ export function DashboardShell() {
           })}
         </nav>
 
-        <button className="button subtle" type="button" onClick={handleSignOut}>
-          <LogOut size={18} />
-          Salir
-        </button>
+        <div className="sidebar-footer">
+          <div className="sidebar-status" aria-label="Estado de sesion">
+            <span className="sidebar-dot" aria-hidden="true" />
+            <div>
+              <strong>Sesion activa</strong>
+              <small>Listo para vender</small>
+            </div>
+          </div>
+
+          <button className="button subtle" type="button" onClick={handleSignOut} disabled={isSigningOut}>
+            <LogOut size={18} />
+            {isSigningOut ? "Saliendo..." : "Salir"}
+          </button>
+        </div>
       </aside>
 
       <section className="dashboard-main">
         <header className="topbar">
           <div>
+            <span className="topbar-eyebrow">Dashboard inicial</span>
             <h1>{title}</h1>
-            <p>Operacion diaria para inventario, ventas y seguimiento de caja.</p>
+            <p>{subtitle}</p>
+          </div>
+
+          <div className="topbar-actions" aria-label="Estado operativo">
+            <span className="status-pill">
+              <BadgeCheck size={16} />
+              Caja lista
+            </span>
+            <span className="date-pill">
+              <CalendarDays size={16} />
+              {todayLabel}
+            </span>
           </div>
         </header>
 
-        {activeModule === "inventario" && <InventoryModule onChanged={refreshData} />}
-        {activeModule === "ventas" && (
-          <SalesModule refreshSignal={revision} onSaleCompleted={refreshData} />
-        )}
-        {activeModule === "reportes" && <ReportsModule refreshSignal={revision} />}
+        {activeContent}
       </section>
     </main>
   )
