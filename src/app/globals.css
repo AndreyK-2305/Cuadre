@@ -4250,11 +4250,15 @@ input:focus-visible,
 @media (max-width: 640px) {
   .landing-page .pricing-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.42rem;
     max-width: none;
     margin-inline: 0;
     padding: 0.2rem 0 0.72rem;
+  }
+
+  .landing-page .pricing-card.is-mobile-hidden {
+    display: none;
   }
 
   .landing-page .pricing-card {
@@ -4396,4 +4400,14 @@ input:focus-visible,
     width: 100%;
     justify-content: center;
   }
+}
+
+.pricing-card li.is-unavailable,
+.pricing-mobile-details li.is-unavailable {
+  color: #88938f;
+}
+
+.pricing-card li.is-unavailable svg,
+.pricing-mobile-details li.is-unavailable svg {
+  color: #c45e58;
 }

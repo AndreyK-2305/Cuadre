@@ -8,14 +8,21 @@ import {
   HeartHandshake,
   MessageCircle,
   PhoneCall,
+  XCircle,
 } from "lucide-react"
+
+type PlanFeature = {
+  label: string
+  included: boolean
+}
 
 type Plan = {
   name: string
   price: string
   caption: string
-  features: string[]
+  features: PlanFeature[]
   featured?: boolean
+  hideOnMobile?: boolean
 }
 
 const plans: Plan[] = [
@@ -23,26 +30,56 @@ const plans: Plan[] = [
     name: "Gratis",
     price: "$0",
     caption: "Para validar el flujo con un catálogo pequeño.",
-    features: ["Hasta 10 productos", "Ventas del día", "Inventario base", "Incluye anuncios"]
+    hideOnMobile: true,
+    features: [
+      { label: "Hasta 10 productos", included: true },
+      { label: "Estado de ventas del día", included: true },
+      { label: "Descargas PDF", included: false },
+      { label: "Historial ampliado", included: false },
+      { label: "Estadísticas avanzadas", included: false },
+      { label: "Incluye anuncios", included: false }
+    ]
   },
   {
     name: "Básico",
     price: "$20.000 COP",
     caption: "Para negocios que ya necesitan operar sin límite de productos.",
-    featured: true,
-    features: ["Inventario ilimitado", "Reportes semanales", "2 descargas PDF", "Soporte de arranque"]
+    features: [
+      { label: "Inventario ilimitado", included: true },
+      { label: "Reportes semanales", included: true },
+      { label: "Hasta 2 descargas PDF", included: true },
+      { label: "Sin anuncios", included: true },
+      { label: "Historial superior a 1 semana", included: false },
+      { label: "Estadísticas avanzadas", included: false }
+    ]
   },
   {
-    name: "Lite",
-    price: "$30.000 COP",
+    name: "Completo",
+    price: "$29.000 COP",
     caption: "Para equipos que consultan y descargan reportes con frecuencia.",
-    features: ["Todo lo del Básico", "PDF ilimitados", "Consulta hasta 1 mes", "Mejor lectura de caja"]
+    featured: true,
+    features: [
+      { label: "Inventario ilimitado", included: true },
+      { label: "Consulta web hasta 1 mes", included: true },
+      { label: "Descargas PDF ilimitadas", included: true },
+      { label: "Sin anuncios", included: true },
+      { label: "Historial global", included: false },
+      { label: "Estadísticas avanzadas", included: false }
+    ]
   },
   {
     name: "Emprendedor",
     price: "A medida",
     caption: "Para negocios que necesitan histórico, gráficos e implementación guiada.",
-    features: ["Historial global", "Métricas avanzadas", "Productos destacados", "Acompañamiento"]
+    features: [
+      { label: "Inventario ilimitado", included: true },
+      { label: "Historial global", included: true },
+      { label: "Descargas PDF ilimitadas", included: true },
+      { label: "Sin anuncios", included: true },
+      { label: "Estadísticas avanzadas", included: true },
+      { label: "Gráficos de productos", included: true },
+      { label: "Acompañamiento personalizado", included: true }
+    ]
   }
 ]
 
@@ -54,8 +91,8 @@ function getWhatsappHref(planName: string) {
 }
 
 export function HomeSalesExperience({ children }: { children: ReactNode }) {
-  const [selectedPlanName, setSelectedPlanName] = useState("Básico")
-  const selectedPlan = plans.find((plan) => plan.name === selectedPlanName) ?? plans[1]
+  const [selectedPlanName, setSelectedPlanName] = useState("Completo")
+  const selectedPlan = plans.find((plan) => plan.name === selectedPlanName) ?? plans[2]
   const whatsappHref = useMemo(() => getWhatsappHref(selectedPlan.name), [selectedPlan.name])
 
   return (
@@ -78,7 +115,7 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
 
             return (
               <article
-                className={`pricing-card ${plan.featured ? "featured" : ""} ${isSelected ? "is-selected" : ""}`}
+                className={`pricing-card ${plan.featured ? "featured" : ""} ${isSelected ? "is-selected" : ""} ${plan.hideOnMobile ? "is-mobile-hidden" : ""}`}
                 key={plan.name}
               >
                 {plan.featured ? <span className="plan-badge">Recomendado</span> : null}
@@ -99,12 +136,16 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
                   </span>
                 </button>
                 <ul className="pricing-desktop-features">
-                  {plan.features.map((feature) => (
-                    <li key={feature}>
-                      <CheckCircle2 size={17} />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
+                  {plan.features.map((feature) => {
+                    const Icon = feature.included ? CheckCircle2 : XCircle
+
+                    return (
+                      <li className={feature.included ? "" : "is-unavailable"} key={feature.label}>
+                        <Icon size={17} aria-hidden="true" />
+                        <span>{feature.label}</span>
+                      </li>
+                    )
+                  })}
                 </ul>
               </article>
             )
@@ -121,12 +162,16 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
           </div>
           <p>{selectedPlan.caption}</p>
           <ul>
-            {selectedPlan.features.map((feature) => (
-              <li key={feature}>
-                <CheckCircle2 size={17} aria-hidden="true" />
-                <span>{feature}</span>
-              </li>
-            ))}
+            {selectedPlan.features.map((feature) => {
+              const Icon = feature.included ? CheckCircle2 : XCircle
+
+              return (
+                <li className={feature.included ? "" : "is-unavailable"} key={feature.label}>
+                  <Icon size={17} aria-hidden="true" />
+                  <span>{feature.label}</span>
+                </li>
+              )
+            })}
           </ul>
           <a className="button gold" href={whatsappHref} target="_blank" rel="noreferrer">
             Consultar este plan
