@@ -5,9 +5,10 @@ import {
   Boxes,
   CheckCircle2,
   ClipboardList,
+  Cloud,
+  Coins,
   FileText,
   HeartHandshake,
-  LogIn,
   MessageCircle,
   PhoneCall,
   ReceiptText,
@@ -16,6 +17,7 @@ import {
   Smartphone,
   TrendingUp
 } from "lucide-react"
+import { HomeNav } from "@/components/home/HomeNav"
 
 const whatsappHref =
   "https://wa.me/573000000000?text=Hola%2C%20quiero%20conocer%20Cuadre"
@@ -66,10 +68,22 @@ const plans = [
   }
 ]
 
-const workflow = [
-  "Abre sesión con tu correo autorizado",
-  "Registra ventas desde el catálogo",
-  "Revisa stock bajo y reportes clave"
+const adoptionAdvantages = [
+  {
+    title: "Sin instalaciones previas",
+    text: "Abre el navegador e inicia sin configuraciones técnicas complejas.",
+    icon: Cloud
+  },
+  {
+    title: "Tu negocio en la palma de tu mano",
+    text: "Consulta y opera desde el dispositivo que ya usas todos los días.",
+    icon: Smartphone
+  },
+  {
+    title: "Crece sin gastos innecesarios",
+    text: "Empieza ligero y escala solo cuando tu operación realmente lo necesite.",
+    icon: Coins
+  }
 ]
 
 export default function Home() {
@@ -79,23 +93,7 @@ export default function Home() {
         <div className="landing-glow landing-glow-left" aria-hidden="true" />
         <div className="landing-glow landing-glow-right" aria-hidden="true" />
 
-        <nav className="landing-nav" aria-label="Navegación principal">
-          <Link className="landing-brand" href="/home">
-            <img src="/img/logo.png" alt="Logo de Cuadre" />
-            <span>
-              <strong>Cuadre</strong>
-              <small>Operaciones comerciales</small>
-            </span>
-          </Link>
-          <div className="landing-nav-actions">
-            <a className="landing-nav-link" href="#planes">Planes</a>
-            <a className="landing-nav-link" href="#nosotros">Nosotros</a>
-            <Link className="button landing-login" href="/login">
-              <LogIn size={17} />
-              Acceder
-            </Link>
-          </div>
-        </nav>
+        <HomeNav />
 
         <div className="landing-hero-grid">
           <div className="landing-hero-content">
@@ -164,21 +162,31 @@ export default function Home() {
 
       <section className="landing-band landing-intro" id="flujo">
         <div className="landing-section-heading">
-          <span className="landing-eyebrow">Operación diaria</span>
-          <h2>Todo empieza en un flujo claro: vender, revisar y decidir.</h2>
+          <span className="landing-eyebrow">Tecnología al alcance</span>
+          <h2>Digitaliza tu negocio sin instalaciones ni inversiones costosas.</h2>
           <p>
-            La página inicial presenta Cuadre como una herramienta de uso real, conectada con el
-            dashboard optimizado para ventas, sesión segura y navegación móvil.
+            Cuadre funciona desde el navegador: abre sesión desde tu celular, computador o tableta
+            y empieza con lo que necesitas hoy. Sin equipos especiales ni una implementación pesada
+            para dar el siguiente paso.
           </p>
         </div>
 
-        <div className="workflow-strip" aria-label="Flujo de uso">
-          {workflow.map((step, index) => (
-            <div className="workflow-step" key={step}>
-              <span>{index + 1}</span>
-              <strong>{step}</strong>
-            </div>
-          ))}
+        <div className="adoption-strip" aria-label="Ventajas para empezar con Cuadre">
+          {adoptionAdvantages.map((advantage) => {
+            const Icon = advantage.icon
+
+            return (
+              <article className="adoption-card" key={advantage.title}>
+                <span>
+                  <Icon size={19} aria-hidden="true" />
+                </span>
+                <div>
+                  <strong>{advantage.title}</strong>
+                  <p>{advantage.text}</p>
+                </div>
+              </article>
+            )
+          })}
         </div>
 
         <div className="benefit-grid">
