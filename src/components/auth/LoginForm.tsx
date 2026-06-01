@@ -75,8 +75,9 @@ export function LoginForm() {
         <div className="login-brand">
           <img src="/img/logo.png" alt="Cuadre" />
           <div>
-            <h1>Cuadre</h1>
-            <p>Control de inventario, ventas y reportes para pequenos negocios.</p>
+            <span className="login-eyebrow">Panel operativo</span>
+              <h1>Cuadre</h1>
+            <p>Control de inventario, ventas y reportes para pequeños negocios.</p>
           </div>
         </div>
 
@@ -87,6 +88,11 @@ export function LoginForm() {
         )}
 
         <form className="login-card" onSubmit={handleSubmit}>
+            <div className="login-card-header login-card-note">
+
+
+              <p>Usa el correo autorizado para abrir el panel de ventas y operación.</p>
+            </div>
           <div className="field">
             <label htmlFor="email">Correo</label>
             <input
@@ -101,13 +107,13 @@ export function LoginForm() {
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contrasena</label>
+            <label htmlFor="password">Contraseña</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Tu contrasena"
+              placeholder="Tu contraseña"
               autoComplete="current-password"
               required
             />

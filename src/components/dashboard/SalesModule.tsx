@@ -10,21 +10,33 @@ import {
   Search,
   ShoppingBag,
   Trash2,
-  WalletCards,
   X
 } from "lucide-react"
 import { formatCurrency, saleLabel } from "@/lib/format"
 import { supabase } from "@/lib/supabase/client"
 import type { CartItem, Product, RegisterSaleResult } from "@/types/app"
 
+type MobileCartState = {
+  quantity: number
+  total: number
+  hasItems: boolean
+}
+
 type SalesModuleProps = {
   refreshSignal: number
+  cartOpenSignal?: number
+  onCartStateChange?: (state: MobileCartState) => void
   onSaleCompleted: () => void
 }
 
 const quickCashValues = [2000, 5000, 10000, 20000, 50000, 100000]
 
-export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps) {
+export function SalesModule({
+  refreshSignal,
+  cartOpenSignal = 0,
+  onCartStateChange,
+  onSaleCompleted
+}: SalesModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [cashReceived, setCashReceived] = useState(0)
@@ -86,6 +98,20 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
 
   const change = Math.max(cashReceived - cartTotal, 0)
   const canCharge = cart.length > 0 && cashReceived >= cartTotal && !saving
+
+  useEffect(() => {
+    onCartStateChange?.({
+      quantity: cartQuantity,
+      total: cartTotal,
+      hasItems: cart.length > 0
+    })
+  }, [cart.length, cartQuantity, cartTotal, onCartStateChange])
+
+  useEffect(() => {
+    if (cartOpenSignal > 0 && cart.length > 0) {
+      setIsCheckoutOpen(true)
+    }
+  }, [cart.length, cartOpenSignal])
 
   function addToCart(product: Product) {
     setReceipt(null)
@@ -156,30 +182,19 @@ export function SalesModule({ refreshSignal, onSaleCompleted }: SalesModuleProps
 
   return (
     <div className={`module sales-module ${cart.length > 0 ? "has-mobile-cart" : ""}`}>
-      <section className="sales-command" aria-labelledby="ventas-heading">
-        <div className="sales-command-copy">
-          <span className="module-kicker">Punto de venta</span>
-          <h2 id="ventas-heading">Venta rapida con control de caja</h2>
-          <p>
-            Busca, agrega productos y cobra en efectivo con el resumen siempre visible para reducir errores.
-          </p>
-        </div>
-
-        <div className="sales-insights" aria-label="Resumen de ventas">
+      <section className="sales-command sales-command-compact" aria-label="Datos utiles para vender">
+        <div className="sales-insights" aria-label="Resumen de inventario para vender">
           <div className="insight-card">
-            <ShoppingBag size={18} />
+            <ShoppingBag size={18} aria-hidden="true" />
             <span>Catalogo</span>
             <strong>{products.length}</strong>
+            <small>{visibleProductsLabel}</small>
           </div>
           <div className="insight-card warn">
-            <PackageSearch size={18} />
+            <PackageSearch size={18} aria-hidden="true" />
             <span>Stock bajo</span>
             <strong>{lowStockCount}</strong>
-          </div>
-          <div className="insight-card accent">
-            <WalletCards size={18} />
-            <span>En carrito</span>
-            <strong>{cartQuantity}</strong>
+            <small>{lowStockCount === 1 ? "producto por revisar" : "productos por revisar"}</small>
           </div>
         </div>
       </section>
