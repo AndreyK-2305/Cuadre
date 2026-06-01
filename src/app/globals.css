@@ -4049,14 +4049,30 @@ input:focus-visible,
   width: 100%;
 }
 
-.landing-nav-dock.is-footer-visible {
+.landing-nav-dock.is-page-end-visible {
   pointer-events: none;
   opacity: 0.2;
   transform: translate(-50%, -12px) scale(0.985);
 }
 
+.landing-nav-dock .landing-nav {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 42px rgba(22, 34, 31, 0.13);
+}
+
 .landing-hero {
   padding-top: clamp(5.8rem, 9vw, 7rem);
+}
+
+.landing-intro .landing-section-heading {
+  align-items: center;
+  text-align: center;
+}
+
+.landing-intro .landing-section-heading p {
+  max-width: 48rem;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .adoption-strip {

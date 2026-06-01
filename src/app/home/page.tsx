@@ -1,12 +1,11 @@
 import Link from "next/link"
 import {
   ArrowRight,
+  BadgeDollarSign,
   BarChart3,
   Boxes,
   CheckCircle2,
   ClipboardList,
-  Cloud,
-  Coins,
   FileText,
   HeartHandshake,
   MessageCircle,
@@ -14,6 +13,7 @@ import {
   ReceiptText,
   ShieldCheck,
   ShoppingCart,
+  SlidersHorizontal,
   Smartphone,
   TrendingUp
 } from "lucide-react"
@@ -70,19 +70,19 @@ const plans = [
 
 const adoptionAdvantages = [
   {
-    title: "Sin instalaciones previas",
-    text: "Abre el navegador e inicia sin configuraciones técnicas complejas.",
-    icon: Cloud
+    title: "Empieza gratis",
+    text: "Registra hasta 10 productos y valida el flujo antes de asumir un costo mensual.",
+    icon: BadgeDollarSign
   },
   {
-    title: "Tu negocio en la palma de tu mano",
-    text: "Consulta y opera desde el dispositivo que ya usas todos los días.",
-    icon: Smartphone
+    title: "Paga por lo que usas",
+    text: "Elige un plan según tus reportes e historial, sin comprar un sistema sobredimensionado.",
+    icon: SlidersHorizontal
   },
   {
-    title: "Crece sin gastos innecesarios",
-    text: "Empieza ligero y escala solo cuando tu operación realmente lo necesite.",
-    icon: Coins
+    title: "Acompañamiento cercano",
+    text: "Conversa por WhatsApp cuando necesites orientación para dar el siguiente paso.",
+    icon: MessageCircle
   }
 ]
 
@@ -301,7 +301,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="landing-footer-bottom">
+        <div className="landing-footer-bottom" id="page-end">
           <span>© {new Date().getFullYear()} Cuadre. Una base flexible para pequeños negocios.</span>
           <Link href="/login">
             Entrar a Cuadre
