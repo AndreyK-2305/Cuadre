@@ -3775,3 +3775,285 @@ input:focus-visible,
     font-size: 0.78rem;
   }
 }
+
+/* Home footer and gentle navigation motion */
+@keyframes home-nav-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-page .landing-nav {
+  animation: home-nav-enter 520ms var(--ease-standard) both;
+}
+
+.landing-page .landing-hero-content {
+  animation: home-content-enter 680ms var(--ease-standard) 80ms both;
+}
+
+.landing-page .landing-product-card {
+  animation: home-card-enter 720ms var(--ease-standard) 160ms both;
+}
+
+.landing-page .landing-actions .button,
+.landing-page .landing-login,
+.landing-page .landing-nav-link,
+.landing-page .landing-footer a {
+  transition:
+    color var(--duration-soft) var(--ease-standard),
+    background var(--duration-soft) var(--ease-standard),
+    border-color var(--duration-soft) var(--ease-standard),
+    box-shadow var(--duration-soft) var(--ease-standard),
+    transform var(--duration-soft) var(--ease-standard);
+}
+
+.landing-page .landing-actions .button:hover,
+.landing-page .landing-login:hover {
+  transform: translateY(-2px);
+}
+
+.landing-page .landing-actions .button:active,
+.landing-page .landing-login:active {
+  transform: translateY(0);
+}
+
+.landing-page .landing-actions .gold svg,
+.landing-footer-bottom svg {
+  transition: transform var(--duration-soft) var(--ease-standard);
+}
+
+.landing-page .landing-actions .gold:hover svg,
+.landing-footer-bottom a:hover svg {
+  transform: translateX(3px);
+}
+
+.landing-page .workflow-step,
+.landing-page .benefit-card,
+.landing-page .pricing-card,
+.landing-page .proof-grid div {
+  transition:
+    border-color var(--duration-soft) var(--ease-standard),
+    box-shadow var(--duration-soft) var(--ease-standard),
+    transform var(--duration-soft) var(--ease-standard);
+}
+
+.landing-footer {
+  position: relative;
+  padding: clamp(2.6rem, 6vw, 4.5rem) clamp(18px, 5vw, 72px) 7rem;
+  overflow: hidden;
+  border-top: 1px solid rgba(217, 180, 99, 0.2);
+  background:
+    linear-gradient(145deg, rgba(18, 32, 31, 0.98), rgba(14, 61, 64, 0.96)),
+    #13201f;
+  color: rgba(240, 253, 250, 0.82);
+}
+
+.landing-footer::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(110deg, rgba(217, 180, 99, 0.08), transparent 42%);
+}
+
+.landing-footer-main,
+.landing-footer-bottom {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1180px);
+  margin: 0 auto;
+}
+
+.landing-footer-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(9rem, 0.55fr) minmax(14rem, 0.8fr);
+  gap: clamp(1.6rem, 4vw, 3.6rem);
+}
+
+.landing-footer-about {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 43rem;
+}
+
+.landing-footer-brand {
+  width: fit-content;
+  display: inline-flex;
+  gap: 0.68rem;
+  align-items: center;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.landing-footer-brand img {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.landing-footer-brand span,
+.landing-footer-column {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.landing-footer-brand small {
+  color: rgba(240, 253, 250, 0.58);
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.landing-footer-about p,
+.landing-footer-column p {
+  margin: 0;
+  color: rgba(240, 253, 250, 0.66);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.landing-footer-note,
+.landing-footer-contact a,
+.landing-footer-bottom a {
+  display: inline-flex;
+  gap: 0.48rem;
+  align-items: center;
+}
+
+.landing-footer-note {
+  color: #f5d58c;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.landing-footer-column {
+  align-content: start;
+}
+
+.landing-footer-column > strong {
+  margin-bottom: 0.4rem;
+  color: #f5d58c;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-footer-column a {
+  width: fit-content;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.9rem;
+  font-weight: 760;
+  text-decoration: none;
+}
+
+.landing-footer-column a:hover,
+.landing-footer-bottom a:hover {
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.landing-footer-contact a {
+  margin-top: 0.36rem;
+  padding: 0.62rem 0.74rem;
+  border: 1px solid rgba(245, 213, 140, 0.2);
+  border-radius: 8px;
+  background: rgba(245, 213, 140, 0.08);
+  color: #f5d58c;
+}
+
+.landing-footer-contact a:hover {
+  border-color: rgba(245, 213, 140, 0.34);
+  background: rgba(245, 213, 140, 0.14);
+  color: #fff7ed;
+}
+
+.landing-footer-bottom {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: clamp(1.8rem, 4vw, 3rem);
+  padding-top: 1rem;
+  border-top: 1px solid rgba(240, 253, 250, 0.14);
+  color: rgba(240, 253, 250, 0.52);
+  font-size: 0.78rem;
+}
+
+.landing-footer-bottom a {
+  flex: 0 0 auto;
+  color: #f5d58c;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+@supports (animation-timeline: view()) {
+  .landing-page .landing-intro .landing-section-heading,
+  .landing-page .workflow-step,
+  .landing-page .benefit-card,
+  .landing-page .landing-plans .landing-section-heading,
+  .landing-page .pricing-card,
+  .landing-page .proof-panel,
+  .landing-page .landing-footer-main {
+    animation: home-card-enter linear both;
+    animation-range: entry 6% cover 28%;
+    animation-timeline: view();
+  }
+}
+
+@media (max-width: 760px) {
+  .landing-footer {
+    padding: 2.6rem 18px 6.4rem;
+  }
+
+  .landing-footer-main {
+    grid-template-columns: 1fr;
+    gap: 1.45rem;
+  }
+
+  .landing-footer-bottom {
+    display: grid;
+    gap: 0.72rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page *,
+  .landing-page *::before,
+  .landing-page *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

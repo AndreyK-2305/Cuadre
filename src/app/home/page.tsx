@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardList,
   FileText,
+  HeartHandshake,
   LogIn,
   MessageCircle,
   PhoneCall,
@@ -88,6 +89,7 @@ export default function Home() {
           </Link>
           <div className="landing-nav-actions">
             <a className="landing-nav-link" href="#planes">Planes</a>
+            <a className="landing-nav-link" href="#nosotros">Nosotros</a>
             <Link className="button landing-login" href="/login">
               <LogIn size={17} />
               Acceder
@@ -252,6 +254,53 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <footer className="landing-footer" id="nosotros">
+        <div className="landing-footer-main">
+          <div className="landing-footer-about">
+            <Link className="landing-footer-brand" href="/home">
+              <img src="/img/logo.png" alt="Logo de Cuadre" />
+              <span>
+                <strong>Cuadre</strong>
+                <small>Operaciones comerciales</small>
+              </span>
+            </Link>
+            <p>
+              Somos un equipo pequeño que disfruta convertir tareas repetitivas en herramientas
+              claras. Creamos Cuadre para que administrar un negocio se sienta más cercano, menos
+              pesado y listo para crecer con cada emprendimiento.
+            </p>
+            <span className="landing-footer-note">
+              <HeartHandshake size={17} aria-hidden="true" />
+              Hecho pensando en negocios que avanzan paso a paso.
+            </span>
+          </div>
+
+          <div className="landing-footer-column">
+            <strong>Explora</strong>
+            <a href="#flujo">Cómo funciona</a>
+            <a href="#planes">Planes</a>
+            <Link href="/login">Acceso al panel</Link>
+          </div>
+
+          <div className="landing-footer-column landing-footer-contact">
+            <strong>Hablemos</strong>
+            <p>Cuéntanos qué vendes y qué necesitas ordenar primero.</p>
+            <a href={whatsappHref} target="_blank" rel="noreferrer">
+              <MessageCircle size={17} aria-hidden="true" />
+              WhatsApp de ventas
+            </a>
+          </div>
+        </div>
+
+        <div className="landing-footer-bottom">
+          <span>© {new Date().getFullYear()} Cuadre. Una base flexible para pequeños negocios.</span>
+          <Link href="/login">
+            Entrar a Cuadre
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+      </footer>
 
       <a className="whatsapp-sales-card" href={whatsappHref} target="_blank" rel="noreferrer">
         <span className="whatsapp-sales-note">Para cualquier pregunta adicional, estamos aquí.</span>
