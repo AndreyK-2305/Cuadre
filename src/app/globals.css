@@ -4066,13 +4066,18 @@ input:focus-visible,
 
 .landing-intro .landing-section-heading {
   align-items: center;
+  max-width: 1120px;
   text-align: center;
 }
 
 .landing-intro .landing-section-heading p {
-  max-width: 48rem;
+  max-width: 66rem;
   margin-inline: auto;
   text-align: center;
+}
+
+.landing-plans .landing-section-heading.split h2 {
+  font-size: clamp(1.78rem, 3.25vw, 2.65rem);
 }
 
 .adoption-strip {

@@ -42,7 +42,7 @@ const plans: Plan[] = [
   },
   {
     name: "Básico",
-    price: "$20.000 COP",
+    price: "$19.000 COP",
     caption: "Para negocios que ya necesitan operar sin límite de productos.",
     features: [
       { label: "Inventario ilimitado", included: true },
@@ -240,7 +240,6 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
           <span className="whatsapp-sales-copy">
             <strong>Contactar con ventas</strong>
             <span>Consultar plan {selectedPlan.name}</span>
-            <b>+57 300 000 0000</b>
           </span>
           <MessageCircle className="whatsapp-sales-mark" size={18} />
         </span>
