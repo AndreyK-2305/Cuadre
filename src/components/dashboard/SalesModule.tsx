@@ -9,18 +9,26 @@ import {
   ReceiptText,
   Search,
   ShoppingBag,
-  Trash2,
-  X
+  Trash2
 } from "lucide-react"
+import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
 import { formatCurrency, saleLabel } from "@/lib/format"
-import { supabase } from "@/lib/supabase/client"
-import type { CartItem, Product, RegisterSaleResult } from "@/types/app"
-
-type MobileCartState = {
-  quantity: number
-  total: number
-  hasItems: boolean
-}
+import { filterProducts } from "@/lib/dashboard/products"
+import {
+  buildSaleItems,
+  canChargeCart,
+  getCartQuantity,
+  getCartTotal,
+  getLowStockCount,
+  getMobileCartState,
+  getSaleStockLabel,
+  getSaleStockState,
+  getVisibleProductsLabel,
+  quickCashValues
+} from "@/lib/dashboard/sales"
+import { fetchActiveSaleProducts } from "@/lib/data/products"
+import { registerSale } from "@/lib/data/sales"
+import type { CartItem, MobileCartState, Product, RegisterSaleResult } from "@/types/app"
 
 type SalesModuleProps = {
   refreshSignal: number
@@ -28,8 +36,6 @@ type SalesModuleProps = {
   onCartStateChange?: (state: MobileCartState) => void
   onSaleCompleted: () => void
 }
-
-const quickCashValues = [2000, 5000, 10000, 20000, 50000, 100000]
 
 export function SalesModule({
   refreshSignal,
@@ -51,12 +57,7 @@ export function SalesModule({
     setLoading(true)
     setError("")
 
-    const { data, error: loadError } = await supabase
-      .from("productos")
-      .select("*")
-      .eq("activo", true)
-      .eq("tipo_item", "producto")
-      .order("nombre", { ascending: true })
+    const { data, error: loadError } = await fetchActiveSaleProducts()
 
     if (loadError) {
       setError(loadError.message)
@@ -73,39 +74,21 @@ export function SalesModule({
   }, [loadProducts, refreshSignal])
 
   const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return products
-
-    return products.filter((product) => {
-      const haystack = `${product.nombre} ${product.descripcion ?? ""} ${product.tipo_unidad}`
-      return haystack.toLowerCase().includes(term)
-    })
+    return filterProducts(products, search)
   }, [products, search])
 
-  const cartTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + item.product.precio * item.quantity, 0),
-    [cart]
-  )
-  const cartQuantity = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart])
-  const lowStockCount = useMemo(
-    () => products.filter((product) => product.cantidad_stock > 0 && product.cantidad_stock <= 5).length,
-    [products]
-  )
+  const cartTotal = useMemo(() => getCartTotal(cart), [cart])
+  const cartQuantity = useMemo(() => getCartQuantity(cart), [cart])
+  const lowStockCount = useMemo(() => getLowStockCount(products), [products])
 
-  const visibleProductsLabel = search.trim()
-    ? `${filteredProducts.length} resultados`
-    : `${filteredProducts.length} disponibles`
+  const visibleProductsLabel = getVisibleProductsLabel(search, filteredProducts.length)
 
   const change = Math.max(cashReceived - cartTotal, 0)
-  const canCharge = cart.length > 0 && cashReceived >= cartTotal && !saving
+  const canCharge = canChargeCart(cart, cashReceived, cartTotal, saving)
 
   useEffect(() => {
-    onCartStateChange?.({
-      quantity: cartQuantity,
-      total: cartTotal,
-      hasItems: cart.length > 0
-    })
-  }, [cart.length, cartQuantity, cartTotal, onCartStateChange])
+    onCartStateChange?.(getMobileCartState(cart))
+  }, [cart, onCartStateChange])
 
   useEffect(() => {
     if (cartOpenSignal > 0 && cart.length > 0) {
@@ -154,15 +137,9 @@ export function SalesModule({
     setError("")
     setReceipt(null)
 
-    const items = cart.map((item) => ({
-      producto_id: item.product.id,
-      cantidad: item.quantity
-    }))
+    const items = buildSaleItems(cart)
 
-    const { data, error: saleError } = await supabase.rpc("registrar_venta", {
-      p_items: items,
-      p_dinero_recibido: cashReceived
-    })
+    const { data, error: saleError } = await registerSale(items, cashReceived)
 
     setSaving(false)
 
@@ -247,14 +224,8 @@ export function SalesModule({
           <div className="product-sale-grid">
             {!loading &&
               filteredProducts.map((product) => {
-                const stockState =
-                  product.cantidad_stock <= 0 ? "off" : product.cantidad_stock <= 5 ? "low" : "active"
-                const stockLabel =
-                  product.cantidad_stock <= 0
-                    ? "Sin stock"
-                    : product.cantidad_stock <= 5
-                      ? "Stock bajo"
-                      : "Disponible"
+                const stockState = getSaleStockState(product)
+                const stockLabel = getSaleStockLabel(product)
 
                 return (
                   <article className="sale-card" key={product.id}>
@@ -417,19 +388,13 @@ function CheckoutModal({
   const cartQuantity = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
-    <div className="modal-backdrop" role="presentation">
+    <ModalBackdrop>
       <section className="modal-panel checkout-panel">
-        <div className="modal-header">
-          <div>
-            <h2>Confirmar venta</h2>
-            <p>
-              {cart.length} productos · {cartQuantity} unidades
-            </p>
-          </div>
-          <button className="button subtle icon" type="button" onClick={onClose} title="Cerrar">
-            <X size={18} />
-          </button>
-        </div>
+        <ModalHeader
+          title="Confirmar venta"
+          description={`${cart.length} productos · ${cartQuantity} unidades`}
+          onClose={onClose}
+        />
 
         <div className="checkout-grid">
           <section className="checkout-details">
@@ -563,6 +528,6 @@ function CheckoutModal({
           </button>
         </div>
       </section>
-    </div>
+    </ModalBackdrop>
   )
 }

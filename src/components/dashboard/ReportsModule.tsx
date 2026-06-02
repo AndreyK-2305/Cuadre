@@ -10,20 +10,20 @@ import {
   getDateDaysAgo,
   saleLabel
 } from "@/lib/format"
-import { supabase } from "@/lib/supabase/client"
+import {
+  buildReportMetrics,
+  getInventorySnapshot,
+  getPresetDateRange,
+  getTopProducts,
+  type ReportPreset
+} from "@/lib/dashboard/reports"
+import { fetchProducts } from "@/lib/data/products"
+import { createSalesReportQuery } from "@/lib/data/sales"
 import type { Product, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
   refreshSignal: number
 }
-
-type Metric = {
-  label: string
-  value: string
-  caption: string
-}
-
-type ReportPreset = "today" | "week" | "month" | "all" | "custom"
 
 export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const today = formatDateKey()
@@ -48,25 +48,10 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       return
     }
 
-    let salesQuery = supabase
-      .from("ventas")
-      .select("id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, detalle_ventas(*)")
-      .order("fecha", { ascending: false })
-      .limit(1000)
-
-    if (dateFrom) {
-      salesQuery = salesQuery.gte("fecha_dia", dateFrom)
-    }
-
-    if (dateTo) {
-      salesQuery = salesQuery.lte("fecha_dia", dateTo)
-    }
+    const salesQuery = createSalesReportQuery(dateFrom, dateTo)
 
     const [{ data: salesData, error: salesError }, { data: productData, error: productError }] =
-      await Promise.all([
-        salesQuery,
-        supabase.from("productos").select("*").order("nombre", { ascending: true })
-      ])
+      await Promise.all([salesQuery, fetchProducts()])
 
     if (salesError || productError) {
       setError(salesError?.message ?? productError?.message ?? "No se pudieron cargar reportes.")
@@ -83,72 +68,20 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     void loadReports()
   }, [loadReports, refreshSignal])
 
-  const metrics = useMemo<Metric[]>(() => {
-    const sum = (items: Sale[]) => items.reduce((total, sale) => total + sale.total, 0)
-    const total = sum(sales)
-    const units = sales.reduce(
-      (count, sale) =>
-        count + (sale.detalle_ventas ?? []).reduce((saleCount, detail) => saleCount + detail.cantidad, 0),
-      0
-    )
-    const average = sales.length > 0 ? Math.round(total / sales.length) : 0
-
-    return [
-      { label: "Total filtrado", value: formatCurrency(total), caption: `${sales.length} ventas` },
-      { label: "Productos vendidos", value: String(units), caption: "unidades en detalle" },
-      { label: "Promedio por venta", value: formatCurrency(average), caption: "ticket promedio" },
-      { label: "Rango", value: getRangeLabel(dateFrom, dateTo), caption: "consulta activa" }
-    ]
-  }, [dateFrom, dateTo, sales])
-
-  const topProducts = useMemo(() => {
-    const productMap = new Map<string, { quantity: number; total: number }>()
-
-    for (const sale of sales) {
-      for (const detail of sale.detalle_ventas ?? []) {
-        const current = productMap.get(detail.producto_nombre) ?? { quantity: 0, total: 0 }
-        productMap.set(detail.producto_nombre, {
-          quantity: current.quantity + detail.cantidad,
-          total: current.total + detail.subtotal
-        })
-      }
-    }
-
-    return Array.from(productMap.entries())
-      .map(([name, values]) => ({ name, ...values }))
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5)
-  }, [sales])
-
-  const inventoryItems = products.filter((product) => product.tipo_item === "inventario")
-  const saleProducts = products.filter((product) => product.tipo_item === "producto")
-  const inventoryTotal = inventoryItems.reduce((total, product) => total + product.cantidad_stock, 0)
-  const suspendedProducts = products.filter((product) => !product.activo).length
+  const metrics = useMemo(() => buildReportMetrics(sales, dateFrom, dateTo), [dateFrom, dateTo, sales])
+  const topProducts = useMemo(() => getTopProducts(sales), [sales])
+  const { inventoryItems, saleProducts, inventoryTotal, suspendedProducts } = useMemo(
+    () => getInventorySnapshot(products),
+    [products]
+  )
 
   function setPreset(preset: ReportPreset) {
     setActivePreset(preset)
 
-    if (preset === "today") {
-      setDateFrom(today)
-      setDateTo(today)
-      return
-    }
-
-    if (preset === "week") {
-      setDateFrom(lastSevenDays)
-      setDateTo(today)
-      return
-    }
-
-    if (preset === "month") {
-      setDateFrom(`${currentMonth}-01`)
-      setDateTo(today)
-      return
-    }
-
-    if (preset === "all") {
-      setDateFrom("")
-      setDateTo("")
+    const nextRange = getPresetDateRange(preset, { today, lastSevenDays, currentMonth })
+    if (nextRange) {
+      setDateFrom(nextRange.dateFrom)
+      setDateTo(nextRange.dateTo)
     }
   }
 
@@ -339,20 +272,6 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       )}
     </div>
   )
-}
-
-function getRangeLabel(dateFrom: string, dateTo: string) {
-  if (!dateFrom && !dateTo) return "Todo"
-  if (dateFrom && dateTo && dateFrom === dateTo) return formatDateForLabel(dateFrom)
-  if (dateFrom && dateTo) return `${formatDateForLabel(dateFrom)} a ${formatDateForLabel(dateTo)}`
-  if (dateFrom) return `Desde ${formatDateForLabel(dateFrom)}`
-  return `Hasta ${formatDateForLabel(dateTo)}`
-}
-
-function formatDateForLabel(dateKey: string) {
-  const [year, month, day] = dateKey.split("-")
-  if (!year || !month || !day) return dateKey
-  return `${day}/${month}/${year}`
 }
 
 function SaleDetails({ details }: { details: SaleItem[] }) {

@@ -1,31 +1,30 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
-import { Check, Edit3, Plus, Power, Search, X } from "lucide-react"
+import { Check, Edit3, Plus, Power, Search } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
-import { supabase } from "@/lib/supabase/client"
-import type { Product } from "@/types/app"
+import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
+import {
+  buildProductPayload,
+  emptyProductForm,
+  filterProducts,
+  getProductCreatedNotice,
+  getProductSavedNotice,
+  splitProductsByType,
+  type ProductForm
+} from "@/lib/dashboard/products"
+import {
+  createInventoryMovement,
+  createProduct,
+  fetchProducts,
+  updateProduct,
+  updateProductActiveState,
+  updateProductStock
+} from "@/lib/data/products"
+import type { InventoryMovementType, Product } from "@/types/app"
 
 type InventoryModuleProps = {
   onChanged: () => void
-}
-
-type ProductForm = {
-  nombre: string
-  descripcion: string
-  tipo_item: Product["tipo_item"]
-  precio: string
-  cantidad_stock: string
-  tipo_unidad: string
-}
-
-const emptyForm: ProductForm = {
-  nombre: "",
-  descripcion: "",
-  tipo_item: "producto",
-  precio: "",
-  cantidad_stock: "0",
-  tipo_unidad: "unidad"
 }
 
 export function InventoryModule({ onChanged }: InventoryModuleProps) {
@@ -34,7 +33,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
   const [saving, setSaving] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<ProductForm>(emptyForm)
+  const [form, setForm] = useState<ProductForm>(emptyProductForm)
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({})
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
@@ -44,10 +43,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     setLoading(true)
     setError("")
 
-    const { data, error: loadError } = await supabase
-      .from("productos")
-      .select("*")
-      .order("nombre", { ascending: true })
+    const { data, error: loadError } = await fetchProducts()
 
     if (loadError) {
       setError(loadError.message)
@@ -64,17 +60,13 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
   }, [loadProducts])
 
   const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return products
-
-    return products.filter((product) => {
-      const haystack = `${product.nombre} ${product.descripcion ?? ""} ${product.tipo_unidad}`
-      return haystack.toLowerCase().includes(term)
-    })
+    return filterProducts(products, search)
   }, [products, search])
 
-  const saleProducts = filteredProducts.filter((product) => product.tipo_item === "producto")
-  const inventoryItems = filteredProducts.filter((product) => product.tipo_item === "inventario")
+  const { inventoryItems, saleProducts } = useMemo(
+    () => splitProductsByType(filteredProducts),
+    [filteredProducts]
+  )
 
   function updateForm<K extends keyof ProductForm>(key: K, value: ProductForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -91,7 +83,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
   }
 
   function closeModal() {
-    setForm(emptyForm)
+    setForm(emptyProductForm)
     setEditingId(null)
     setIsModalOpen(false)
   }
@@ -99,7 +91,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
   function openCreateModal() {
     setError("")
     setNotice("")
-    setForm(emptyForm)
+    setForm(emptyProductForm)
     setEditingId(null)
     setIsModalOpen(true)
   }
@@ -121,13 +113,13 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
 
   async function createMovement(
     product: Product,
-    tipo_movimiento: "entrada" | "ajuste" | "deshabilitado",
+    tipo_movimiento: InventoryMovementType,
     cantidad: number,
     stock_antes: number,
     stock_despues: number,
     nota: string
   ) {
-    const { error: movementError } = await supabase.from("movimientos_inventario").insert({
+    const { error: movementError } = await createInventoryMovement({
       producto_id: product.id,
       tipo_movimiento,
       cantidad,
@@ -147,15 +139,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     setError("")
     setNotice("")
 
-    const isInventoryItem = form.tipo_item === "inventario"
-    const payload = {
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      tipo_item: form.tipo_item,
-      precio: isInventoryItem ? 0 : Number(form.precio),
-      cantidad_stock: isInventoryItem ? Number(form.cantidad_stock) : 0,
-      tipo_unidad: form.tipo_unidad.trim() || "unidad"
-    }
+    const payload = buildProductPayload(form)
 
     if (!payload.nombre) {
       setError("El nombre es obligatorio.")
@@ -172,12 +156,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     try {
       if (editingId) {
         const original = products.find((product) => product.id === editingId)
-        const { data, error: updateError } = await supabase
-          .from("productos")
-          .update(payload)
-          .eq("id", editingId)
-          .select("*")
-          .single()
+        const { data, error: updateError } = await updateProduct(editingId, payload)
 
         if (updateError) throw new Error(updateError.message)
 
@@ -200,13 +179,9 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
         }
 
         replaceProduct(updatedProduct)
-        setNotice(updatedProduct.tipo_item === "producto" ? "Producto actualizado." : "Inventario actualizado.")
+        setNotice(getProductSavedNotice(updatedProduct))
       } else {
-        const { data, error: insertError } = await supabase
-          .from("productos")
-          .insert(payload)
-          .select("*")
-          .single()
+        const { data, error: insertError } = await createProduct(payload)
 
         if (insertError) throw new Error(insertError.message)
 
@@ -223,7 +198,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
         }
 
         appendProduct(createdProduct)
-        setNotice(createdProduct.tipo_item === "producto" ? "Producto creado." : "Inventario creado.")
+        setNotice(getProductCreatedNotice(createdProduct))
       }
 
       closeModal()
@@ -246,12 +221,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     setNotice("")
     const nextStock = product.cantidad_stock + amount
 
-    const { data, error: updateError } = await supabase
-      .from("productos")
-      .update({ cantidad_stock: nextStock })
-      .eq("id", product.id)
-      .select("*")
-      .single()
+    const { data, error: updateError } = await updateProductStock(product.id, nextStock)
 
     if (updateError) {
       setError(updateError.message)
@@ -280,12 +250,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     setError("")
     setNotice("")
 
-    const { data, error: updateError } = await supabase
-      .from("productos")
-      .update({ activo: !product.activo })
-      .eq("id", product.id)
-      .select("*")
-      .single()
+    const { data, error: updateError } = await updateProductActiveState(product.id, !product.activo)
 
     if (updateError) {
       setError(updateError.message)
@@ -546,17 +511,13 @@ function ProductModal({
   const isProduct = form.tipo_item === "producto"
 
   return (
-    <div className="modal-backdrop" role="presentation">
+    <ModalBackdrop>
       <form className="modal-panel form-grid" onSubmit={onSubmit}>
-        <div className="modal-header">
-          <div>
-            <h2>{editing ? "Editar" : "Agregar"}</h2>
-            <p>{isProduct ? "Producto de venta" : "Parte de inventario"}</p>
-          </div>
-          <button className="button subtle icon" type="button" onClick={onClose} title="Cerrar">
-            <X size={18} />
-          </button>
-        </div>
+        <ModalHeader
+          title={editing ? "Editar" : "Agregar"}
+          description={isProduct ? "Producto de venta" : "Parte de inventario"}
+          onClose={onClose}
+        />
 
         <label className="check-row">
           <input
@@ -642,6 +603,6 @@ function ProductModal({
           {saving ? "Guardando..." : editing ? "Guardar cambios" : "Agregar"}
         </button>
       </form>
-    </div>
+    </ModalBackdrop>
   )
 }

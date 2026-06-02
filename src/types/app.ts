@@ -11,6 +11,22 @@ export type Product = {
   updated_at: string
 }
 
+export type ProductWritePayload = Pick<
+  Product,
+  "nombre" | "descripcion" | "tipo_item" | "precio" | "cantidad_stock" | "tipo_unidad"
+>
+
+export type InventoryMovementType = "entrada" | "venta" | "ajuste" | "deshabilitado"
+
+export type InventoryMovementPayload = {
+  producto_id: string
+  tipo_movimiento: InventoryMovementType
+  cantidad: number
+  stock_antes: number
+  stock_despues: number
+  nota: string
+}
+
 export type SaleItem = {
   id: string
   venta_id: string
@@ -35,6 +51,12 @@ export type Sale = {
 export type CartItem = {
   product: Product
   quantity: number
+}
+
+export type MobileCartState = {
+  quantity: number
+  total: number
+  hasItems: boolean
 }
 
 export type RegisterSaleResult = {

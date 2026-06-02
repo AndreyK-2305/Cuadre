@@ -1,21 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useMemo, useState } from "react"
 import { BadgeCheck, BarChart3, Boxes, CalendarDays, ChevronDown, LogOut, ShoppingCart, UserRound } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
-import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
 import { SalesModule } from "./SalesModule"
 import { InventoryModule } from "./InventoryModule"
 import { ReportsModule } from "./ReportsModule"
+import { useDashboardSession } from "./useDashboardSession"
+import type { MobileCartState } from "@/types/app"
 
 type ActiveModule = "ventas" | "inventario" | "reportes"
-
-type MobileCartState = {
-  quantity: number
-  total: number
-  hasItems: boolean
-}
 
 const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "ventas", label: "Ventas", icon: ShoppingCart },
@@ -23,86 +17,17 @@ const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] 
   { id: "reportes", label: "Reportes", icon: BarChart3 }
 ]
 
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "accentColor": "#155e75",
-  "accentWarm": "#d97706",
-  "density": 1,
-  "panelRadius": 16
-}/*EDITMODE-END*/
-
 export function DashboardShell() {
-  const router = useRouter()
+  const { handleSignOut, isSigningOut, loading, sessionLabel } = useDashboardSession()
   const [activeModule, setActiveModule] = useState<ActiveModule>("ventas")
   const [refreshSignal, setRefreshSignal] = useState(0)
-  const [isSigningOut, setIsSigningOut] = useState(false)
-  const [sessionEmail, setSessionEmail] = useState("")
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [mobileCartState, setMobileCartState] = useState<MobileCartState>({
     quantity: 0,
     total: 0,
     hasItems: false
   })
   const [cartOpenSignal, setCartOpenSignal] = useState(0)
-
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      router.replace("/login")
-      return
-    }
-
-    let mounted = true
-
-    async function loadSession() {
-      const { data } = await supabase.auth.getSession()
-      if (!mounted) return
-
-      if (!data.session) {
-        router.replace("/login")
-        return
-      }
-
-      setSessionEmail(data.session.user.email ?? "Cuenta autenticada")
-      setLoading(false)
-    }
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!nextSession) {
-        setSessionEmail("")
-        router.replace("/login")
-        return
-      }
-
-      if (mounted) {
-        setSessionEmail(nextSession.user.email ?? "Cuenta autenticada")
-        setLoading(false)
-      }
-    })
-
-    void loadSession()
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [router])
-
-  const handleSignOut = async () => {
-    if (isSigningOut) return
-
-    setIsSigningOut(true)
-    const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      setIsSigningOut(false)
-      window.alert("No se pudo cerrar la sesion. Intenta nuevamente.")
-      return
-    }
-
-    router.replace("/login")
-  }
 
   const handleDataChanged = useCallback(() => {
     setRefreshSignal((current) => current + 1)
@@ -155,8 +80,6 @@ export function DashboardShell() {
     setCartOpenSignal((current) => current + 1)
   }
 
-  const sessionLabel = sessionEmail || "Cuenta autenticada"
-
   const sessionPopover = (
     <div className="session-popover" role="dialog" aria-label="Datos de sesion">
       <div className="session-popover-heading">
@@ -181,7 +104,7 @@ export function DashboardShell() {
   }
 
   return (
-    <main className="dashboard" data-design-density={TWEAK_DEFAULTS.density}>
+    <main className="dashboard">
       <aside className="sidebar" aria-label="Navegacion principal">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
