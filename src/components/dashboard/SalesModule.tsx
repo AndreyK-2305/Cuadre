@@ -197,6 +197,17 @@ export function SalesModule({
             <small>{lowStockCount === 1 ? "producto por revisar" : "productos por revisar"}</small>
           </div>
         </div>
+
+        <label className="search-box desktop-sales-search" htmlFor="buscar-venta-escritorio">
+          <Search size={18} aria-hidden="true" />
+          <input
+            id="buscar-venta-escritorio"
+            className="search-input"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar producto o unidad"
+          />
+        </label>
       </section>
 
       {error && <div className="alert">{error}</div>}
@@ -208,18 +219,18 @@ export function SalesModule({
       )}
 
       <div className="sales-layout">
-        <section className="panel product-list" aria-labelledby="catalogo-heading">
-          <div className="catalog-header">
+        <section className="panel product-list" aria-label="Catalogo de productos para vender">
+          <div className="catalog-header mobile-catalog-header">
             <div>
               <span className="module-kicker">Catalogo activo</span>
               <h2 id="catalogo-heading">Productos para vender</h2>
               <p>{visibleProductsLabel}</p>
             </div>
 
-            <label className="search-box" htmlFor="buscar-venta">
+            <label className="search-box" htmlFor="buscar-venta-movil">
               <Search size={18} aria-hidden="true" />
               <input
-                id="buscar-venta"
+                id="buscar-venta-movil"
                 className="search-input"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}

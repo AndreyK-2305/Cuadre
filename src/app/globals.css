@@ -4416,3 +4416,49 @@ input:focus-visible,
 .pricing-mobile-details li.is-unavailable svg {
   color: #c45e58;
 }
+
+/* Dashboard desktop catalog cleanup and mobile modal layering */
+.sidebar::after {
+  pointer-events: none;
+}
+
+.sidebar-logout {
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-catalog-header {
+  display: none;
+}
+
+@media (min-width: 821px) {
+  .sales-command-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.58fr);
+    gap: 0.78rem;
+    align-items: stretch;
+  }
+
+  .desktop-sales-search {
+    min-width: 0;
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 820px) {
+  .desktop-sales-search {
+    display: none;
+  }
+
+  .mobile-catalog-header {
+    display: flex;
+  }
+
+  .dashboard-main {
+    z-index: auto;
+  }
+
+  .modal-backdrop {
+    z-index: 120;
+  }
+}

@@ -232,12 +232,12 @@ export function DashboardShell() {
             </button>
             {sessionMenuOpen && sessionPopover}
           </div>
-        </div>
 
-            <button className="button sidebar-logout" type="button" onClick={handleSignOut} disabled={isSigningOut}>
-              <LogOut size={17} aria-hidden="true" />
-              {isSigningOut ? "Cerrando sesion..." : "Cerrar sesion"}
-            </button>
+          <button className="button sidebar-logout" type="button" onClick={handleSignOut} disabled={isSigningOut}>
+            <LogOut size={17} aria-hidden="true" />
+            {isSigningOut ? "Cerrando sesion..." : "Cerrar sesion"}
+          </button>
+        </div>
       </aside>
 
       <section className="dashboard-main">
