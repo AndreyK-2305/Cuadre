@@ -486,7 +486,7 @@ a {
 .login-brand h1 {
   font-size: clamp(2rem, 4vw, 3.2rem);
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   color: #155e75;
 }
 
@@ -529,7 +529,7 @@ a {
 .login-card-header h2 {
   color: #16221f;
   font-size: 1.22rem;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
   line-height: 1.1;
 }
 
@@ -543,7 +543,7 @@ a {
   color: #16221f;
   font-size: 0.82rem;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .login-page .field input {
@@ -948,7 +948,7 @@ a {
 .landing-section-heading h2,
 .proof-panel h2 {
   color: #16221f;
-  letter-spacing: -0.055em;
+  letter-spacing: 0;
 }
 
 .landing-hero h1 {
@@ -1091,7 +1091,7 @@ a {
 .product-metrics strong {
   color: #155e75;
   font-size: 1.55rem;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .product-list {
@@ -2468,7 +2468,7 @@ a {
 .catalog-header h2,
 .cart-title-row h2 {
   color: #13201f;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .topbar h1 {
@@ -2706,7 +2706,7 @@ a {
   margin-bottom: 0.32rem;
   color: #172421;
   font-size: 1.05rem;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .sale-card footer strong {
@@ -2920,7 +2920,7 @@ input:focus-visible,
   background: color-mix(in srgb, var(--dashboard-accent) 8%, #ffffff);
   color: #13201f;
   font-size: clamp(0.98rem, 1.3vw, 1.08rem);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   box-shadow: 0 10px 24px rgba(21, 94, 117, 0.08);
 }
 
@@ -2945,7 +2945,7 @@ input:focus-visible,
   margin: 0;
   color: #172421;
   font-size: clamp(1.04rem, 1.35vw, 1.22rem);
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .module-title {
@@ -3210,7 +3210,7 @@ input:focus-visible,
 
   .mobile-session-chip strong {
     font-size: 0.74rem;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
   .mobile-session-chip small {
@@ -3282,7 +3282,7 @@ input:focus-visible,
     font: inherit;
     font-size: 0.69rem;
     font-weight: 750;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     transition: background 220ms ease, color 220ms ease, transform 220ms ease;
   }
 
@@ -3579,9 +3579,9 @@ input:focus-visible,
   max-width: 34ch;
   color: #31443f;
   font-size: clamp(0.95rem, 1.7vw, 1.02rem);
-  font-weight: 680;
+  font-weight: 600;
   line-height: 1.48;
-  letter-spacing: -0.018em;
+  letter-spacing: 0;
 }
 
 .login-card-note p::before {
