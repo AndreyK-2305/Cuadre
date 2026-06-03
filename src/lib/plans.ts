@@ -14,7 +14,7 @@ export type PublicPlan = {
 
 export const defaultPublicPlanName = "Completo"
 
-export const salesWhatsappPhone = "573000000000"
+export const salesWhatsappPhone = "573232523586"
 
 export const publicPlans: PublicPlan[] = [
   {

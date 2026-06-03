@@ -109,7 +109,7 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
         <div className="landing-footer-main">
           <div className="landing-footer-about">
             <Link className="landing-footer-brand" href="/home">
-              <img src="/img/logo.png" alt="Logo de Cuadre" />
+              <img src="/img/cuadreapp.png" alt="Logo de Cuadre" />
               <span>
                 <strong>Cuadre</strong>
                 <small>Operaciones comerciales</small>

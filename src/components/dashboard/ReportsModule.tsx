@@ -285,17 +285,6 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
 
   return (
     <div className="module">
-      <div className="module-title">
-        <div>
-          <h2>{isGlobal ? "Reportes por emprendimiento" : "Resumen del negocio"}</h2>
-          <p>
-            {isGlobal
-              ? "Selecciona un emprendimiento para consultar sus ventas, egresos, resultado neto e inventario."
-              : "Ventas, egresos, resultado neto e inventario actual."}
-          </p>
-        </div>
-      </div>
-
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 

@@ -267,7 +267,7 @@ export function DashboardShell() {
       <aside className="sidebar" aria-label="Navegacion principal">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            C
+            <img src="/img/cuadreapp.png" alt="" />
           </span>
           <div>
             <strong>{businessName}</strong>

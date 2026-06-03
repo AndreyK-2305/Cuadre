@@ -7,7 +7,12 @@ import "./styles/dashboard.css"
 
 export const metadata: Metadata = {
   title: "Cuadre",
-  description: "Control de inventario, ventas y reportes para pequenos negocios"
+  description: "Control de inventario, ventas y reportes para pequenos negocios",
+  icons: {
+    icon: "/img/cuadreapp.png",
+    shortcut: "/img/cuadreapp.png",
+    apple: "/img/cuadreapp.png"
+  }
 }
 
 export default function RootLayout({

@@ -119,13 +119,6 @@ export function ExpensesModule({ restaurantId, refreshSignal, onChanged }: Expen
 
   return (
     <div className="module expenses-module">
-      <div className="module-title">
-        <div>
-          <h2>Egresos</h2>
-          <p>Registra gastos diarios para restarlos del resultado del negocio.</p>
-        </div>
-      </div>
-
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 

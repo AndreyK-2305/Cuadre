@@ -7,6 +7,7 @@ import {
   Check,
   CreditCard,
   Edit3,
+  Home,
   KeyRound,
   Megaphone,
   Plus,
@@ -452,7 +453,13 @@ export function AdminShell() {
           <ShieldCheck size={26} aria-hidden="true" />
           <h1>Acceso restringido</h1>
           <p>Solo un SuperAdministrador puede gestionar emprendimientos.</p>
-          <a className="button primary" href="/dashboard">Volver al dashboard</a>
+          <div className="actions-row">
+            <a className="button primary" href="/dashboard">Volver al dashboard</a>
+            <a className="button subtle" href="/home">
+              <Home size={17} aria-hidden="true" />
+              Inicio
+            </a>
+          </div>
         </section>
       </main>
     )
@@ -467,6 +474,10 @@ export function AdminShell() {
           <p>Gestiona clientes, correos administradores y planes activos de Cuadre.</p>
         </div>
         <div className="actions-row">
+          <a className="button subtle" href="/home">
+            <Home size={17} aria-hidden="true" />
+            Inicio
+          </a>
           <a className="button subtle" href="/dashboard">
             <ArrowLeft size={17} aria-hidden="true" />
             Reportes

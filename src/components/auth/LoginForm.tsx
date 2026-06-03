@@ -1,8 +1,9 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogIn, ShieldCheck } from "lucide-react"
+import { Home, LogIn, ShieldCheck } from "lucide-react"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
 import { fetchCurrentUserProfile } from "@/lib/data/restaurants"
 
@@ -182,7 +183,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
     <main className="login-page">
       <section className="login-panel">
         <div className="login-brand">
-          <img src="/img/logo.png" alt="Cuadre" />
+          <img src="/img/cuadreapp.png" alt="Cuadre" />
           <div>
             <span className="login-eyebrow">{isAdminLogin ? "Panel administrador" : "Panel operativo"}</span>
             <h1>Cuadre</h1>
@@ -245,6 +246,11 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
             {loading ? <ShieldCheck size={18} /> : <LogIn size={18} />}
             {loading ? "Procesando..." : getSubmitLabel(passwordMode)}
           </button>
+
+          <Link className="button subtle login-home-link" href="/home">
+            <Home size={18} aria-hidden="true" />
+            Ir a inicio
+          </Link>
         </form>
       </section>
     </main>
