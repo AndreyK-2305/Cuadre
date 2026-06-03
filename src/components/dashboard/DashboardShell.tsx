@@ -1,36 +1,58 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgeCheck,
   BarChart3,
+  BellRing,
   Boxes,
   CalendarDays,
   ChevronDown,
   LogOut,
+  Megaphone,
   ReceiptText,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
   ShoppingCart,
   UserRound
 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { acknowledgeAnnouncement, fetchPendingAnnouncements } from "@/lib/data/announcements"
+import { defaultSubscriptionPlans, fetchSubscriptionPlans } from "@/lib/data/restaurants"
 import { SalesModule } from "./SalesModule"
 import { InventoryModule } from "./InventoryModule"
 import { ReportsModule } from "./ReportsModule"
 import { ExpensesModule } from "./ExpensesModule"
 import { useDashboardSession } from "./useDashboardSession"
-import type { MobileCartState } from "@/types/app"
+import type { Announcement, MobileCartState, SubscriptionPlan } from "@/types/app"
 
-type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes"
+type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes" | "admin"
 
-const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+const operatorModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "ventas", label: "Ventas", icon: ShoppingCart },
   { id: "inventario", label: "Inventario", icon: Boxes },
   { id: "egresos", label: "Egresos", icon: ReceiptText },
   { id: "reportes", label: "Reportes", icon: BarChart3 }
 ]
 
+const superAdminModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+  { id: "reportes", label: "Reportes", icon: BarChart3 },
+  { id: "admin", label: "Admin", icon: Settings2 }
+]
+
 export function DashboardShell() {
-  const { handleSignOut, isSigningOut, loading, sessionLabel } = useDashboardSession()
+  const {
+    businessName,
+    canAccessAdmin,
+    handleSignOut,
+    isSigningOut,
+    loading,
+    profile,
+    profileError,
+    restaurantId,
+    sessionLabel
+  } = useDashboardSession()
   const [activeModule, setActiveModule] = useState<ActiveModule>("ventas")
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
@@ -40,6 +62,20 @@ export function DashboardShell() {
     hasItems: false
   })
   const [cartOpenSignal, setCartOpenSignal] = useState(0)
+  const [subscriptionNoticeDismissed, setSubscriptionNoticeDismissed] = useState(false)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultSubscriptionPlans)
+  const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([])
+  const [activeAnnouncement, setActiveAnnouncement] = useState<Announcement | null>(null)
+
+  const modules = useMemo(() => (canAccessAdmin ? superAdminModules : operatorModules), [canAccessAdmin])
+
+  useEffect(() => {
+    const hasActiveModule = modules.some((module) => module.id === activeModule)
+
+    if (!hasActiveModule) {
+      setActiveModule(modules[0].id)
+    }
+  }, [activeModule, modules])
 
   const handleDataChanged = useCallback(() => {
     setRefreshSignal((current) => current + 1)
@@ -52,15 +88,19 @@ export function DashboardShell() {
 
   const activeModuleConfig = useMemo(
     () => modules.find((module) => module.id === activeModule) ?? modules[0],
-    [activeModule]
+    [activeModule, modules]
   )
 
   const activeDescription = useMemo(() => {
+    if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
+      return "Lectura global de ventas, caja y operaciones de los emprendimientos."
+    }
+    if (activeModule === "admin") return "Configuracion comercial, accesos y emprendimientos suscritos."
     if (activeModule === "inventario") return "Existencias, ajustes y productos activos en una vista operativa."
     if (activeModule === "egresos") return "Gastos diarios listos para descontar del resultado de caja."
-    if (activeModule === "reportes") return "Ventas, caja y movimientos listos para consulta rapida."
+    if (activeModule === "reportes") return canAccessAdmin ? "Lectura global de ventas, caja y operaciones de los emprendimientos." : "Ventas, caja y movimientos listos para consulta rapida."
     return "Cobro rapido con catalogo visible y resumen de caja persistente."
-  }, [activeModule])
+  }, [activeModule, canAccessAdmin, modules])
 
   const ActiveModuleIcon = activeModuleConfig.icon
 
@@ -74,26 +114,125 @@ export function DashboardShell() {
     []
   )
 
-  const activeContent = useMemo(() => {
-    if (activeModule === "inventario") return <InventoryModule onChanged={handleDataChanged} />
-    if (activeModule === "egresos") {
-      return <ExpensesModule refreshSignal={refreshSignal} onChanged={handleDataChanged} />
+  useEffect(() => {
+    if (canAccessAdmin || !profile?.restaurante) return
+
+    let mounted = true
+
+    async function loadOperationalMessages() {
+      const [plansResponse, announcementsResponse] = await Promise.all([
+        fetchSubscriptionPlans(),
+        fetchPendingAnnouncements()
+      ])
+
+      if (!mounted) return
+
+      setPlans(plansResponse.data ?? defaultSubscriptionPlans)
+
+      if (announcementsResponse.data && announcementsResponse.data.length > 0) {
+        setPendingAnnouncements(announcementsResponse.data)
+        setActiveAnnouncement(announcementsResponse.data[0])
+      }
     }
-    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} />
+
+    void loadOperationalMessages()
+
+    return () => {
+      mounted = false
+    }
+  }, [canAccessAdmin, profile?.restaurante])
+
+  const planByLevel = useMemo(
+    () => new Map(plans.map((plan) => [plan.nivel, plan])),
+    [plans]
+  )
+
+  const subscriptionNotice = useMemo(() => {
+    if (canAccessAdmin || subscriptionNoticeDismissed || !profile?.restaurante) return null
+
+    const restaurant = profile.restaurante
+    const currentPlan = planByLevel.get(restaurant.nivel_suscripcion)
+    const planName = currentPlan?.nombre ?? restaurant.nivel_suscripcion
+    const paymentValue = currentPlan && currentPlan.precio > 0 ? formatCurrency(currentPlan.precio) : "A medida"
+
+    if (restaurant.nivel_suscripcion === "Gratis") {
+      return {
+        title: "Cuadre puede darte mas alcance",
+        description:
+          `Tu emprendimiento esta en el plan ${planName}. Con un plan pago puedes ampliar reportes, reducir limites y trabajar con mas herramientas de control.`,
+        icon: Sparkles
+      }
+    }
+
+    const daysUntilPayment = getMonthlyPaymentDaysRemaining(restaurant.fecha_suscripcion)
+
+    if (daysUntilPayment < 0 || daysUntilPayment > 3) return null
+
+    return {
+      title: daysUntilPayment === 0 ? "Pago de suscripcion para hoy" : `Quedan ${daysUntilPayment} dias para el pago`,
+      description: `${restaurant.nombre} esta en el plan ${planName}. Valor a pagar: ${paymentValue}. Recuerda mantener la suscripcion al dia para conservar el acceso operativo.`,
+      icon: BellRing
+    }
+  }, [canAccessAdmin, planByLevel, profile?.restaurante, subscriptionNoticeDismissed])
+
+  const activeContent = useMemo(() => {
+    if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
+      return <ReportsModule refreshSignal={refreshSignal} isGlobal />
+    }
+
+    if (!restaurantId && profile?.rol !== "SuperAdministrador") {
+      return (
+        <section className="panel empty-state">
+          Este usuario aun no tiene un emprendimiento asignado. Un SuperAdministrador debe asociarlo desde /admin.
+        </section>
+      )
+    }
+
+    if (activeModule === "admin") {
+      return (
+        <section className="panel admin-dashboard-cta">
+          <ShieldCheck size={28} aria-hidden="true" />
+          <div>
+            <h2>Administracion de Cuadre</h2>
+            <p>Gestiona emprendimientos, correos administradores, planes y accesos desde el panel central.</p>
+          </div>
+          <a className="button primary" href="/admin">
+            Abrir panel administrador
+          </a>
+        </section>
+      )
+    }
+    if (activeModule === "inventario") return <InventoryModule restaurantId={restaurantId} onChanged={handleDataChanged} />
+    if (activeModule === "egresos") {
+      return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
+    }
+    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} />
     return (
       <SalesModule
+        restaurantId={restaurantId}
         refreshSignal={refreshSignal}
         cartOpenSignal={cartOpenSignal}
         onCartStateChange={setMobileCartState}
         onSaleCompleted={handleDataChanged}
       />
     )
-  }, [activeModule, cartOpenSignal, handleDataChanged, refreshSignal])
+  }, [activeModule, canAccessAdmin, cartOpenSignal, handleDataChanged, modules, profile?.rol, refreshSignal, restaurantId])
 
   const openMobileCart = () => {
     setSessionMenuOpen(false)
     if (!mobileCartState.hasItems) return
     setCartOpenSignal((current) => current + 1)
+  }
+
+  async function closeAnnouncement() {
+    if (!activeAnnouncement) return
+
+    const closedAnnouncement = activeAnnouncement
+    void acknowledgeAnnouncement(closedAnnouncement.id)
+    const nextAnnouncements = pendingAnnouncements.filter((announcement) => announcement.id !== closedAnnouncement.id)
+
+    setPendingAnnouncements(nextAnnouncements)
+    setActiveAnnouncement(nextAnnouncements[0] ?? null)
   }
 
   const sessionPopover = (
@@ -119,6 +258,10 @@ export function DashboardShell() {
     return <main className="loading-screen">Cargando Cuadre...</main>
   }
 
+  if (profileError) {
+    return <main className="loading-screen">No se pudo cargar el perfil: {profileError}</main>
+  }
+
   return (
     <main className="dashboard">
       <aside className="sidebar" aria-label="Navegacion principal">
@@ -127,7 +270,7 @@ export function DashboardShell() {
             C
           </span>
           <div>
-            <strong>Cuadre</strong>
+            <strong>{businessName}</strong>
             <small>Operaciones comerciales</small>
           </div>
         </div>
@@ -153,6 +296,13 @@ export function DashboardShell() {
         </nav>
 
         <div className="sidebar-footer">
+          {canAccessAdmin && (
+            <a className="button subtle sidebar-admin-link" href="/admin">
+              <ShieldCheck size={17} aria-hidden="true" />
+              Panel admin
+            </a>
+          )}
+
           <div className="sidebar-status" aria-label="Sesion activa">
             <button
               className="sidebar-status session-trigger"
@@ -163,8 +313,8 @@ export function DashboardShell() {
             >
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
-                <strong>Sesion activa</strong>
-                <span className="sidebar-session-label">Conectado como</span>
+                <strong>{businessName}</strong>
+                <span className="sidebar-session-label">Cuenta</span>
                 <small title={sessionLabel}>{sessionLabel}</small>
               </div>
               <ChevronDown className="session-trigger-chevron" size={16} aria-hidden="true" />
@@ -191,7 +341,7 @@ export function DashboardShell() {
             >
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
-                <strong>Sesion iniciada</strong>
+                <strong>{businessName}</strong>
                 <small title={sessionLabel}>{sessionLabel}</small>
               </div>
               <ChevronDown className="session-trigger-chevron" size={15} aria-hidden="true" />
@@ -227,7 +377,7 @@ export function DashboardShell() {
           <div className="topbar-actions" aria-label="Estado operativo">
             <span className="status-pill">
               <BadgeCheck size={16} aria-hidden="true" />
-              Caja lista
+              {canAccessAdmin ? "Vista global" : "Caja lista"}
             </span>
             <span className="date-pill">
               <CalendarDays size={16} aria-hidden="true" />
@@ -239,7 +389,7 @@ export function DashboardShell() {
         {activeContent}
       </section>
 
-      <nav className="mobile-tabbar" aria-label="Modulos principales">
+      <nav className={canAccessAdmin ? "mobile-tabbar admin-mobile-tabbar" : "mobile-tabbar"} aria-label="Modulos principales">
         {modules.map((module) => {
           const Icon = module.icon
           const isActive = activeModule === module.id
@@ -258,6 +408,90 @@ export function DashboardShell() {
           )
         })}
       </nav>
+
+      {activeAnnouncement && (
+        <OperationalAnnouncement announcement={activeAnnouncement} onClose={closeAnnouncement} />
+      )}
+
+      {!activeAnnouncement && subscriptionNotice && (
+        <SubscriptionReminder notice={subscriptionNotice} onClose={() => setSubscriptionNoticeDismissed(true)} />
+      )}
     </main>
   )
+}
+
+function OperationalAnnouncement({
+  announcement,
+  onClose
+}: {
+  announcement: Announcement
+  onClose: () => void
+}) {
+  return (
+    <div className="modal-backdrop subscription-reminder-backdrop" role="presentation">
+      <section className="modal-panel subscription-reminder" role="dialog" aria-modal="true">
+        <span className="subscription-reminder-icon" aria-hidden="true">
+          <Megaphone size={22} />
+        </span>
+        <div>
+          <h2>{announcement.titulo}</h2>
+          <p>{announcement.mensaje}</p>
+        </div>
+        <button className="button primary" type="button" onClick={onClose}>
+          Entendido
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function SubscriptionReminder({
+  notice,
+  onClose
+}: {
+  notice: { title: string; description: string; icon: typeof Sparkles }
+  onClose: () => void
+}) {
+  const Icon = notice.icon
+
+  return (
+    <div className="modal-backdrop subscription-reminder-backdrop" role="presentation">
+      <section className="modal-panel subscription-reminder" role="dialog" aria-modal="true">
+        <span className="subscription-reminder-icon" aria-hidden="true">
+          <Icon size={22} />
+        </span>
+        <div>
+          <h2>{notice.title}</h2>
+          <p>{notice.description}</p>
+        </div>
+        <button className="button primary" type="button" onClick={onClose}>
+          Entendido
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function getMonthlyPaymentDaysRemaining(subscriptionDate: string) {
+  const [, , rawDay] = subscriptionDate.split("-")
+  const subscriptionDay = Number(rawDay)
+
+  if (!Number.isFinite(subscriptionDay) || subscriptionDay <= 0) return -1
+
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+  const todayStart = new Date(currentYear, currentMonth, today.getDate())
+  const dueDay = Math.min(subscriptionDay, new Date(currentYear, currentMonth + 1, 0).getDate())
+  let dueDate = new Date(currentYear, currentMonth, dueDay)
+
+  if (dueDate < todayStart) {
+    const nextMonth = currentMonth + 1
+    const nextDueDay = Math.min(subscriptionDay, new Date(currentYear, nextMonth + 1, 0).getDate())
+    dueDate = new Date(currentYear, nextMonth, nextDueDay)
+  }
+
+  const differenceMs = dueDate.getTime() - todayStart.getTime()
+
+  return Math.ceil(differenceMs / 86_400_000)
 }

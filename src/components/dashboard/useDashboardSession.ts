@@ -3,18 +3,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
+import { fetchCurrentUserProfile } from "@/lib/data/restaurants"
+import type { UserProfile } from "@/types/app"
 
-export function useDashboardSession() {
+type DashboardSessionOptions = {
+  allowUnauthenticated?: boolean
+  loginPath?: string
+}
+
+export function useDashboardSession(options: DashboardSessionOptions = {}) {
+  const { allowUnauthenticated = false, loginPath = "/login" } = options
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [sessionEmail, setSessionEmail] = useState("")
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileError, setProfileError] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      router.replace("/login")
-      return
-    }
+      if (!isSupabaseConfigured) {
+        if (allowUnauthenticated) {
+          setLoading(false)
+        } else {
+          router.replace(loginPath)
+        }
+        return
+      }
 
     let mounted = true
 
@@ -23,11 +38,36 @@ export function useDashboardSession() {
       if (!mounted) return
 
       if (!data.session) {
-        router.replace("/login")
+        setIsAuthenticated(false)
+        if (allowUnauthenticated) {
+          setLoading(false)
+        } else {
+          router.replace(loginPath)
+        }
         return
       }
 
+      setIsAuthenticated(true)
       setSessionEmail(data.session.user.email ?? "Cuenta autenticada")
+
+      const { data: profileData, error } = await fetchCurrentUserProfile()
+      if (!mounted) return
+
+      if (error) {
+        setProfileError(error.message)
+        setLoading(false)
+        return
+      }
+
+      const nextProfile = normalizeProfile(profileData)
+
+      if (nextProfile.rol !== "SuperAdministrador" && nextProfile.restaurante && !nextProfile.restaurante.activo) {
+        setProfileError("El acceso de este emprendimiento esta suspendido. Contacta al administrador de Cuadre.")
+        setLoading(false)
+        return
+      }
+
+      setProfile(nextProfile)
       setLoading(false)
     }
 
@@ -36,13 +76,20 @@ export function useDashboardSession() {
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!nextSession) {
         setSessionEmail("")
-        router.replace("/login")
+        setIsAuthenticated(false)
+        setProfile(null)
+        if (allowUnauthenticated) {
+          setLoading(false)
+        } else {
+          router.replace(loginPath)
+        }
         return
       }
 
       if (mounted) {
+        setIsAuthenticated(true)
         setSessionEmail(nextSession.user.email ?? "Cuenta autenticada")
-        setLoading(false)
+        void loadSession()
       }
     })
 
@@ -52,7 +99,7 @@ export function useDashboardSession() {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [router])
+  }, [allowUnauthenticated, loginPath, router])
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return
@@ -70,12 +117,29 @@ export function useDashboardSession() {
   }, [isSigningOut, router])
 
   const sessionLabel = useMemo(() => sessionEmail || "Cuenta autenticada", [sessionEmail])
+  const businessName = profile?.restaurante?.nombre ?? (profile?.rol === "SuperAdministrador" ? "Todos los emprendimientos" : "Negocio sin asignar")
+  const restaurantId = profile?.restaurante_id ?? ""
+  const canAccessAdmin = profile?.rol === "SuperAdministrador"
 
   return {
+    businessName,
+    canAccessAdmin,
     handleSignOut,
+    isAuthenticated,
     isSigningOut,
     loading,
+    profile,
+    profileError,
+    restaurantId,
     sessionEmail,
     sessionLabel
+  }
+}
+
+function normalizeProfile(data: unknown): UserProfile {
+  const profile = data as UserProfile & { restaurante?: UserProfile["restaurante"] | UserProfile["restaurante"][] }
+  return {
+    ...profile,
+    restaurante: Array.isArray(profile.restaurante) ? profile.restaurante[0] ?? null : profile.restaurante ?? null
   }
 }

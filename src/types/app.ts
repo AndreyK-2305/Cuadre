@@ -1,5 +1,65 @@
+export type UserRole = "SuperAdministrador" | "Administrador"
+
+export type SubscriptionLevel = "Gratis" | "Basico" | "Completo" | "Emprendedor"
+
+export type SubscriptionPlan = {
+  nivel: SubscriptionLevel
+  nombre: string
+  precio: number
+  updated_at: string
+}
+
+export type SubscriptionPlanPayload = Pick<SubscriptionPlan, "nombre" | "precio">
+
+export type AnnouncementTargetType = "restaurants" | "plan"
+
+export type Announcement = {
+  id: string
+  titulo: string
+  mensaje: string
+  target_type: AnnouncementTargetType
+  target_restaurante_ids: string[]
+  target_plan: SubscriptionLevel | null
+  activo: boolean
+  created_at: string
+}
+
+export type AnnouncementCreatePayload = Pick<
+  Announcement,
+  "titulo" | "mensaje" | "target_type" | "target_restaurante_ids" | "target_plan"
+>
+
+export type Restaurant = {
+  id: string
+  nombre: string
+  admin_email: string
+  telefono: string
+  nivel_suscripcion: SubscriptionLevel
+  fecha_suscripcion: string
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type RestaurantWritePayload = Pick<
+  Restaurant,
+  "nombre" | "admin_email" | "telefono" | "nivel_suscripcion" | "fecha_suscripcion" | "activo"
+>
+
+export type RestaurantCreatePayload = RestaurantWritePayload
+
+export type UserProfile = {
+  user_id: string
+  email: string
+  nombre: string | null
+  rol: UserRole
+  restaurante_id: string | null
+  restaurante?: Restaurant | null
+}
+
 export type Product = {
   id: string
+  restaurante_id: string
   nombre: string
   descripcion: string | null
   tipo_item: "producto" | "inventario"
@@ -19,6 +79,7 @@ export type ProductWritePayload = Pick<
 export type InventoryMovementType = "entrada" | "venta" | "ajuste" | "deshabilitado"
 
 export type InventoryMovementPayload = {
+  restaurante_id: string
   producto_id: string
   tipo_movimiento: InventoryMovementType
   cantidad: number
@@ -29,6 +90,7 @@ export type InventoryMovementPayload = {
 
 export type Expense = {
   id: string
+  restaurante_id: string
   user_id: string
   descripcion: string
   valor: number
@@ -43,6 +105,7 @@ export type Expense = {
 }
 
 export type ExpenseWritePayload = {
+  restaurante_id: string
   descripcion: string
   valor: number
   fecha_dia: string
@@ -60,6 +123,7 @@ export type SaleItem = {
 
 export type Sale = {
   id: string
+  restaurante_id: string
   folio_diario: number
   fecha: string
   fecha_dia: string

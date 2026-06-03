@@ -31,6 +31,7 @@ import { registerSale } from "@/lib/data/sales"
 import type { CartItem, MobileCartState, Product, RegisterSaleResult } from "@/types/app"
 
 type SalesModuleProps = {
+  restaurantId: string
   refreshSignal: number
   cartOpenSignal?: number
   onCartStateChange?: (state: MobileCartState) => void
@@ -38,6 +39,7 @@ type SalesModuleProps = {
 }
 
 export function SalesModule({
+  restaurantId,
   refreshSignal,
   cartOpenSignal = 0,
   onCartStateChange,
@@ -139,7 +141,7 @@ export function SalesModule({
 
     const items = buildSaleItems(cart)
 
-    const { data, error: saleError } = await registerSale(items, cashReceived)
+    const { data, error: saleError } = await registerSale(items, cashReceived, restaurantId)
 
     setSaving(false)
 

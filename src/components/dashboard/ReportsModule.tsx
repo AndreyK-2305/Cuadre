@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Boxes, CalendarDays, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
+import { Boxes, Building2, CalendarDays, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
 import {
   formatCurrency,
   formatDateKey,
@@ -18,16 +18,18 @@ import {
   type ReportPreset
 } from "@/lib/dashboard/reports"
 import { createExpensesReportQuery, createVoidedExpensesReportQuery, restoreExpense, voidExpense } from "@/lib/data/expenses"
-import { fetchProducts } from "@/lib/data/products"
+import { fetchProducts, fetchProductsByRestaurant } from "@/lib/data/products"
+import { fetchRestaurants } from "@/lib/data/restaurants"
 import { createSalesReportQuery, createVoidedSalesReportQuery, restoreSale, voidSale } from "@/lib/data/sales"
 import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
-import type { Expense, Product, Sale, SaleItem } from "@/types/app"
+import type { Expense, Product, Restaurant, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
+  isGlobal?: boolean
   refreshSignal: number
 }
 
-export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
+export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModuleProps) {
   const today = formatDateKey()
   const lastSevenDays = getDateDaysAgo(6)
   const currentMonth = getCurrentMonthPrefix()
@@ -36,6 +38,9 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const [voidedSales, setVoidedSales] = useState<Sale[]>([])
   const [voidedExpenses, setVoidedExpenses] = useState<Expense[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState("")
+  const [loadingRestaurants, setLoadingRestaurants] = useState(isGlobal)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
@@ -46,6 +51,37 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
   const [activePreset, setActivePreset] = useState<ReportPreset>("today")
+
+  useEffect(() => {
+    if (!isGlobal) return
+
+    let mounted = true
+
+    async function loadRestaurants() {
+      setLoadingRestaurants(true)
+      const { data, error: restaurantsError } = await fetchRestaurants()
+
+      if (!mounted) return
+
+      if (restaurantsError) {
+        setError(restaurantsError.message)
+        setRestaurants([])
+        setLoadingRestaurants(false)
+        return
+      }
+
+      const nextRestaurants = (data ?? []) as Restaurant[]
+      setRestaurants(nextRestaurants)
+      setSelectedRestaurantId((current) => current || nextRestaurants[0]?.id || "")
+      setLoadingRestaurants(false)
+    }
+
+    void loadRestaurants()
+
+    return () => {
+      mounted = false
+    }
+  }, [isGlobal])
 
   const loadReports = useCallback(async () => {
     setLoading(true)
@@ -61,10 +97,22 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       return
     }
 
-    const salesQuery = createSalesReportQuery(dateFrom, dateTo)
-    const expensesQuery = createExpensesReportQuery(dateFrom, dateTo)
-    const voidedSalesQuery = createVoidedSalesReportQuery(dateFrom, dateTo)
-    const voidedExpensesQuery = createVoidedExpensesReportQuery(dateFrom, dateTo)
+    if (isGlobal && !selectedRestaurantId) {
+      setSales([])
+      setExpenses([])
+      setVoidedSales([])
+      setVoidedExpenses([])
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
+    const reportRestaurantId = isGlobal ? selectedRestaurantId : undefined
+    const salesQuery = createSalesReportQuery(dateFrom, dateTo, reportRestaurantId)
+    const expensesQuery = createExpensesReportQuery(dateFrom, dateTo, reportRestaurantId)
+    const voidedSalesQuery = createVoidedSalesReportQuery(dateFrom, dateTo, reportRestaurantId)
+    const voidedExpensesQuery = createVoidedExpensesReportQuery(dateFrom, dateTo, reportRestaurantId)
+    const productsQuery = reportRestaurantId ? fetchProductsByRestaurant(reportRestaurantId) : fetchProducts()
 
     const [
       { data: salesData, error: salesError },
@@ -72,7 +120,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       { data: voidedSalesData, error: voidedSalesError },
       { data: voidedExpensesData, error: voidedExpensesError },
       { data: productData, error: productError }
-    ] = await Promise.all([salesQuery, expensesQuery, voidedSalesQuery, voidedExpensesQuery, fetchProducts()])
+    ] = await Promise.all([salesQuery, expensesQuery, voidedSalesQuery, voidedExpensesQuery, productsQuery])
 
     if (salesError || expensesError || voidedSalesError || voidedExpensesError || productError) {
       setError(
@@ -93,7 +141,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     setVoidedExpenses((voidedExpensesData ?? []) as Expense[])
     setProducts((productData ?? []) as Product[])
     setLoading(false)
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, isGlobal, selectedRestaurantId])
 
   useEffect(() => {
     void loadReports()
@@ -104,6 +152,10 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     [dateFrom, dateTo, expenses, sales]
   )
   const topProducts = useMemo(() => getTopProducts(sales), [sales])
+  const selectedRestaurant = useMemo(
+    () => restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
+    [restaurants, selectedRestaurantId]
+  )
   const { inventoryItems, saleProducts, inventoryTotal, suspendedProducts } = useMemo(
     () => getInventorySnapshot(products),
     [products]
@@ -235,20 +287,62 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     <div className="module">
       <div className="module-title">
         <div>
-          <h2>Resumen del negocio</h2>
-          <p>Ventas, egresos, resultado neto e inventario actual.</p>
+          <h2>{isGlobal ? "Reportes por emprendimiento" : "Resumen del negocio"}</h2>
+          <p>
+            {isGlobal
+              ? "Selecciona un emprendimiento para consultar sus ventas, egresos, resultado neto e inventario."
+              : "Ventas, egresos, resultado neto e inventario actual."}
+          </p>
         </div>
       </div>
 
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 
+      {isGlobal && (
+        <section className="panel global-report-selector">
+          <div className="filter-title">
+            <Building2 size={18} />
+            <div>
+              <h2>Emprendimiento seleccionado</h2>
+              <p>Los reportes globales se consultan por cliente para evitar mezclar operaciones.</p>
+            </div>
+          </div>
+          <div className="filter-grid compact">
+            <div className="field">
+              <label htmlFor="global-restaurant">Emprendimiento</label>
+              <select
+                id="global-restaurant"
+                value={selectedRestaurantId}
+                onChange={(event) => setSelectedRestaurantId(event.target.value)}
+                disabled={loadingRestaurants || restaurants.length === 0}
+              >
+                {restaurants.map((restaurant) => (
+                  <option key={restaurant.id} value={restaurant.id}>
+                    {restaurant.nombre} - {restaurant.nivel_suscripcion}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <article className="metric global-report-business">
+              <span>{selectedRestaurant?.activo ? "Activo" : "Suspendido"}</span>
+              <strong>{selectedRestaurant?.nombre ?? "Sin emprendimientos"}</strong>
+              <small>{selectedRestaurant?.admin_email ?? "Registra un cliente para consultar reportes."}</small>
+            </article>
+          </div>
+        </section>
+      )}
+
       <section className="panel report-filters">
         <div className="filter-title">
           <Filter size={18} />
           <div>
-            <h2>Filtro de ventas</h2>
-            <p>Consulta ventas y egresos por dia, semana, mes o historial completo.</p>
+            <h2>{isGlobal ? "Filtro global" : "Filtro de ventas"}</h2>
+            <p>
+              {isGlobal
+                ? "Consulta la operacion consolidada por dia, semana, mes o historial completo."
+                : "Consulta ventas y egresos por dia, semana, mes o historial completo."}
+            </p>
           </div>
         </div>
 

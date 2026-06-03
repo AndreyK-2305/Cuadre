@@ -1,14 +1,72 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.restaurantes (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null,
+  admin_email text not null,
+  telefono text not null,
+  nivel_suscripcion text not null default 'Basico' check (
+    nivel_suscripcion in ('Gratis', 'Basico', 'Completo', 'Emprendedor')
+  ),
+  fecha_suscripcion date not null default ((timezone('America/Bogota', now()))::date),
+  activo boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.usuarios (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   nombre text,
+  rol text not null default 'Administrador' check (rol in ('SuperAdministrador', 'Administrador')),
+  restaurante_id uuid references public.restaurantes(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.planes_suscripcion (
+  nivel text primary key check (
+    nivel in ('Gratis', 'Basico', 'Completo', 'Emprendedor')
+  ),
+  nombre text not null,
+  precio integer not null default 0 check (precio >= 0),
+  orden integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.planes_suscripcion (nivel, nombre, precio, orden)
+values
+  ('Gratis', 'Gratis', 0, 1),
+  ('Basico', 'Basico', 19000, 2),
+  ('Completo', 'Completo', 29000, 3),
+  ('Emprendedor', 'Emprendedor', 0, 4)
+on conflict (nivel) do nothing;
+
+create table if not exists public.avisos_admin (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null,
+  mensaje text not null,
+  target_type text not null check (target_type in ('restaurants', 'plan')),
+  target_restaurante_ids uuid[] not null default '{}',
+  target_plan text check (target_plan in ('Gratis', 'Basico', 'Completo', 'Emprendedor')),
+  activo boolean not null default true,
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.avisos_lecturas (
+  aviso_id uuid not null references public.avisos_admin(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (aviso_id, user_id)
+);
+
+alter table public.usuarios
+add column if not exists rol text not null default 'Administrador',
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete set null;
+
 create table if not exists public.productos (
   id uuid primary key default gen_random_uuid(),
+  restaurante_id uuid references public.restaurantes(id) on delete cascade,
   nombre text not null,
   descripcion text,
   tipo_item text not null default 'producto' check (tipo_item in ('producto', 'inventario')),
@@ -21,7 +79,8 @@ create table if not exists public.productos (
 );
 
 alter table public.productos
-add column if not exists tipo_item text not null default 'producto';
+add column if not exists tipo_item text not null default 'producto',
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete cascade;
 
 do $$
 begin
@@ -39,6 +98,7 @@ $$;
 
 create table if not exists public.ventas (
   id uuid primary key default gen_random_uuid(),
+  restaurante_id uuid references public.restaurantes(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete restrict,
   folio_diario integer not null,
   fecha timestamptz not null default now(),
@@ -51,11 +111,12 @@ create table if not exists public.ventas (
   eliminado_at timestamptz,
   eliminado_por uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
-  unique (fecha_dia, folio_diario)
+  unique (restaurante_id, fecha_dia, folio_diario)
 );
 
 create table if not exists public.egresos (
   id uuid primary key default gen_random_uuid(),
+  restaurante_id uuid references public.restaurantes(id) on delete cascade,
   user_id uuid not null default auth.uid() references auth.users(id) on delete restrict,
   descripcion text not null,
   valor integer not null check (valor > 0),
@@ -70,12 +131,14 @@ create table if not exists public.egresos (
 );
 
 alter table public.ventas
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete cascade,
 add column if not exists eliminado boolean not null default false,
 add column if not exists eliminado_motivo text,
 add column if not exists eliminado_at timestamptz,
 add column if not exists eliminado_por uuid references auth.users(id) on delete set null;
 
 alter table public.egresos
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete cascade,
 add column if not exists eliminado boolean not null default false,
 add column if not exists eliminado_motivo text,
 add column if not exists eliminado_at timestamptz,
@@ -83,6 +146,27 @@ add column if not exists eliminado_por uuid references auth.users(id) on delete 
 
 do $$
 begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'usuarios_rol_check'
+      and conrelid = 'public.usuarios'::regclass
+  ) then
+    alter table public.usuarios
+    add constraint usuarios_rol_check check (rol in ('SuperAdministrador', 'Administrador'));
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'restaurantes_nivel_suscripcion_check'
+      and conrelid = 'public.restaurantes'::regclass
+  ) then
+    alter table public.restaurantes
+    add constraint restaurantes_nivel_suscripcion_check
+    check (nivel_suscripcion in ('Gratis', 'Basico', 'Completo', 'Emprendedor'));
+  end if;
+
   if not exists (
     select 1
     from pg_constraint
@@ -123,6 +207,23 @@ begin
 end;
 $$;
 
+alter table public.ventas
+drop constraint if exists ventas_fecha_dia_folio_diario_key;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'ventas_restaurante_fecha_folio_key'
+      and conrelid = 'public.ventas'::regclass
+  ) then
+    alter table public.ventas
+    add constraint ventas_restaurante_fecha_folio_key unique (restaurante_id, fecha_dia, folio_diario);
+  end if;
+end;
+$$;
+
 create table if not exists public.detalle_ventas (
   id uuid primary key default gen_random_uuid(),
   venta_id uuid not null references public.ventas(id) on delete cascade,
@@ -136,6 +237,7 @@ create table if not exists public.detalle_ventas (
 
 create table if not exists public.movimientos_inventario (
   id uuid primary key default gen_random_uuid(),
+  restaurante_id uuid references public.restaurantes(id) on delete cascade,
   producto_id uuid not null references public.productos(id) on delete cascade,
   tipo_movimiento text not null check (
     tipo_movimiento in ('entrada', 'venta', 'ajuste', 'deshabilitado')
@@ -147,14 +249,22 @@ create table if not exists public.movimientos_inventario (
   created_at timestamptz not null default now()
 );
 
+alter table public.movimientos_inventario
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete cascade;
+
 create index if not exists idx_productos_activo on public.productos(activo);
 create index if not exists idx_productos_tipo_item on public.productos(tipo_item);
+create index if not exists idx_productos_restaurante on public.productos(restaurante_id, activo);
 create index if not exists idx_ventas_fecha_dia on public.ventas(fecha_dia desc);
-create index if not exists idx_ventas_activas_fecha_dia on public.ventas(user_id, fecha_dia desc) where eliminado = false;
+create index if not exists idx_ventas_activas_fecha_dia on public.ventas(restaurante_id, fecha_dia desc) where eliminado = false;
 create index if not exists idx_egresos_user_fecha_dia on public.egresos(user_id, fecha_dia desc);
-create index if not exists idx_egresos_activos_fecha_dia on public.egresos(user_id, fecha_dia desc) where eliminado = false;
+create index if not exists idx_egresos_activos_fecha_dia on public.egresos(restaurante_id, fecha_dia desc) where eliminado = false;
 create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(venta_id);
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
+create index if not exists idx_restaurantes_admin_email on public.restaurantes(lower(admin_email));
+create index if not exists idx_usuarios_restaurante on public.usuarios(restaurante_id);
+create index if not exists idx_avisos_admin_activo on public.avisos_admin(activo, created_at desc);
+create index if not exists idx_avisos_lecturas_user on public.avisos_lecturas(user_id, aviso_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -171,10 +281,68 @@ create trigger trg_productos_updated_at
 before update on public.productos
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_restaurantes_updated_at on public.restaurantes;
+create trigger trg_restaurantes_updated_at
+before update on public.restaurantes
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_planes_suscripcion_updated_at on public.planes_suscripcion;
+create trigger trg_planes_suscripcion_updated_at
+before update on public.planes_suscripcion
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_egresos_updated_at on public.egresos;
 create trigger trg_egresos_updated_at
 before update on public.egresos
 for each row execute function public.set_updated_at();
+
+create or replace function public.current_user_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select rol
+  from public.usuarios
+  where user_id = auth.uid()
+$$;
+
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.current_user_role() = 'SuperAdministrador', false)
+$$;
+
+create or replace function public.current_restaurant_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select restaurante_id
+  from public.usuarios
+  where user_id = auth.uid()
+$$;
+
+create or replace function public.current_restaurant_is_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select restaurantes.activo
+    from public.restaurantes
+    where restaurantes.id = public.current_restaurant_id()
+  ), false)
+$$;
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -182,14 +350,27 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_restaurante_id uuid;
 begin
-  insert into public.usuarios (user_id, email, nombre)
+  select id
+  into v_restaurante_id
+  from public.restaurantes
+  where lower(admin_email) = lower(coalesce(new.email, ''))
+  order by created_at desc
+  limit 1;
+
+  insert into public.usuarios (user_id, email, nombre, rol, restaurante_id)
   values (
     new.id,
     coalesce(new.email, ''),
-    coalesce(new.raw_user_meta_data ->> 'name', split_part(coalesce(new.email, ''), '@', 1))
+    coalesce(new.raw_user_meta_data ->> 'name', split_part(coalesce(new.email, ''), '@', 1)),
+    'Administrador',
+    v_restaurante_id
   )
-  on conflict (user_id) do update set email = excluded.email;
+  on conflict (user_id) do update set
+    email = excluded.email,
+    restaurante_id = coalesce(public.usuarios.restaurante_id, excluded.restaurante_id);
 
   return new;
 end;
@@ -200,9 +381,12 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+drop function if exists public.registrar_venta(jsonb, integer);
+
 create or replace function public.registrar_venta(
   p_items jsonb,
-  p_dinero_recibido integer
+  p_dinero_recibido integer,
+  p_restaurante_id uuid
 )
 returns jsonb
 language plpgsql
@@ -211,6 +395,7 @@ set search_path = public
 as $$
 declare
   v_user uuid := auth.uid();
+  v_user_restaurante_id uuid := public.current_restaurant_id();
   v_fecha_dia date := ((timezone('America/Bogota', now()))::date);
   v_folio integer;
   v_total integer := 0;
@@ -222,6 +407,18 @@ declare
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para registrar ventas';
+  end if;
+
+  if p_restaurante_id is null then
+    raise exception 'El restaurante de la venta es obligatorio';
+  end if;
+
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
+  if not public.is_super_admin() and v_user_restaurante_id <> p_restaurante_id then
+    raise exception 'No puedes registrar ventas para otro restaurante';
   end if;
 
   if p_dinero_recibido is null or p_dinero_recibido < 0 then
@@ -240,7 +437,11 @@ begin
       raise exception 'La cantidad de venta no es valida';
     end if;
 
-    select * into v_product from public.productos where id = v_product_id for update;
+    select * into v_product
+    from public.productos
+    where id = v_product_id
+      and restaurante_id = p_restaurante_id
+    for update;
 
     if not found then
       raise exception 'El producto no existe';
@@ -266,9 +467,11 @@ begin
   select coalesce(max(folio_diario), 0) + 1
   into v_folio
   from public.ventas
-  where fecha_dia = v_fecha_dia;
+  where fecha_dia = v_fecha_dia
+    and restaurante_id = p_restaurante_id;
 
   insert into public.ventas (
+    restaurante_id,
     user_id,
     folio_diario,
     fecha_dia,
@@ -277,6 +480,7 @@ begin
     cambio
   )
   values (
+    p_restaurante_id,
     v_user,
     v_folio,
     v_fecha_dia,
@@ -290,7 +494,11 @@ begin
     v_product_id := (v_item ->> 'producto_id')::uuid;
     v_qty := (v_item ->> 'cantidad')::integer;
 
-    select * into v_product from public.productos where id = v_product_id for update;
+    select * into v_product
+    from public.productos
+    where id = v_product_id
+      and restaurante_id = p_restaurante_id
+    for update;
 
     insert into public.detalle_ventas (
       venta_id,
@@ -322,7 +530,7 @@ begin
 end;
 $$;
 
-grant execute on function public.registrar_venta(jsonb, integer) to authenticated;
+grant execute on function public.registrar_venta(jsonb, integer, uuid) to authenticated;
 
 create or replace function public.anular_venta(
   p_venta_id uuid,
@@ -335,6 +543,7 @@ set search_path = public
 as $$
 declare
   v_user uuid := auth.uid();
+  v_restaurante_id uuid := public.current_restaurant_id();
   v_motivo text := btrim(coalesce(p_motivo, ''));
 begin
   if v_user is null then
@@ -345,6 +554,10 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.ventas
   set
     eliminado = true,
@@ -352,7 +565,7 @@ begin
     eliminado_at = now(),
     eliminado_por = v_user
   where id = p_venta_id
-    and user_id = v_user
+    and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and eliminado = false;
 
   if not found then
@@ -374,6 +587,7 @@ set search_path = public
 as $$
 declare
   v_user uuid := auth.uid();
+  v_restaurante_id uuid := public.current_restaurant_id();
   v_motivo text := btrim(coalesce(p_motivo, ''));
 begin
   if v_user is null then
@@ -384,6 +598,10 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.egresos
   set
     eliminado = true,
@@ -391,7 +609,7 @@ begin
     eliminado_at = now(),
     eliminado_por = v_user
   where id = p_egreso_id
-    and user_id = v_user
+    and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and eliminado = false;
 
   if not found then
@@ -412,15 +630,20 @@ set search_path = public
 as $$
 declare
   v_user uuid := auth.uid();
+  v_restaurante_id uuid := public.current_restaurant_id();
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para restaurar ventas';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.ventas
   set eliminado = false
   where id = p_venta_id
-    and user_id = v_user
+    and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and eliminado = true;
 
   if not found then
@@ -441,15 +664,20 @@ set search_path = public
 as $$
 declare
   v_user uuid := auth.uid();
+  v_restaurante_id uuid := public.current_restaurant_id();
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para restaurar egresos';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.egresos
   set eliminado = false
   where id = p_egreso_id
-    and user_id = v_user
+    and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and eliminado = true;
 
   if not found then
@@ -460,6 +688,10 @@ $$;
 
 grant execute on function public.restaurar_egreso(uuid) to authenticated;
 
+alter table public.restaurantes enable row level security;
+alter table public.planes_suscripcion enable row level security;
+alter table public.avisos_admin enable row level security;
+alter table public.avisos_lecturas enable row level security;
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
@@ -471,7 +703,7 @@ drop policy if exists "Usuarios leen su perfil" on public.usuarios;
 create policy "Usuarios leen su perfil"
 on public.usuarios for select
 to authenticated
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_super_admin());
 
 drop policy if exists "Usuarios actualizan su perfil" on public.usuarios;
 create policy "Usuarios actualizan su perfil"
@@ -480,24 +712,124 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "Superadministradores gestionan usuarios" on public.usuarios;
+create policy "Superadministradores gestionan usuarios"
+on public.usuarios for all
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
+drop policy if exists "Restaurantes visibles por rol" on public.restaurantes;
+create policy "Restaurantes visibles por rol"
+on public.restaurantes for select
+to authenticated
+using (public.is_super_admin() or id = public.current_restaurant_id());
+
+drop policy if exists "Superadministradores gestionan restaurantes" on public.restaurantes;
+create policy "Superadministradores gestionan restaurantes"
+on public.restaurantes for all
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
+drop policy if exists "Planes visibles por autenticados" on public.planes_suscripcion;
+create policy "Planes visibles por autenticados"
+on public.planes_suscripcion for select
+to authenticated
+using (true);
+
+drop policy if exists "Superadministradores gestionan planes" on public.planes_suscripcion;
+create policy "Superadministradores gestionan planes"
+on public.planes_suscripcion for update
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
+drop policy if exists "Avisos visibles por destino" on public.avisos_admin;
+create policy "Avisos visibles por destino"
+on public.avisos_admin for select
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    activo = true
+    and public.current_restaurant_is_active()
+    and (
+      (
+        target_type = 'restaurants'
+        and public.current_restaurant_id() = any(target_restaurante_ids)
+      )
+      or (
+        target_type = 'plan'
+        and target_plan = (
+          select restaurantes.nivel_suscripcion
+          from public.restaurantes
+          where restaurantes.id = public.current_restaurant_id()
+        )
+      )
+    )
+  )
+);
+
+drop policy if exists "Superadministradores gestionan avisos" on public.avisos_admin;
+create policy "Superadministradores gestionan avisos"
+on public.avisos_admin for all
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
+drop policy if exists "Usuarios leen sus avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios leen sus avisos vistos"
+on public.avisos_lecturas for select
+to authenticated
+using (user_id = auth.uid() or public.is_super_admin());
+
+drop policy if exists "Usuarios marcan avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios marcan avisos vistos"
+on public.avisos_lecturas for insert
+to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "Usuarios actualizan sus avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios actualizan sus avisos vistos"
+on public.avisos_lecturas for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
 drop policy if exists "Autenticados gestionan productos" on public.productos;
 create policy "Autenticados gestionan productos"
 on public.productos for all
 to authenticated
-using (true)
-with check (true);
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+)
+with check (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios leen sus ventas" on public.ventas;
 create policy "Usuarios leen sus ventas"
 on public.ventas for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios insertan sus ventas" on public.ventas;
 create policy "Usuarios insertan sus ventas"
 on public.ventas for insert
 to authenticated
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and (
+    public.is_super_admin()
+    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  )
+);
 
 drop policy if exists "Usuarios actualizan sus ventas" on public.ventas;
 
@@ -505,13 +837,22 @@ drop policy if exists "Usuarios leen sus egresos" on public.egresos;
 create policy "Usuarios leen sus egresos"
 on public.egresos for select
 to authenticated
-using (auth.uid() = user_id);
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios insertan sus egresos" on public.egresos;
 create policy "Usuarios insertan sus egresos"
 on public.egresos for insert
 to authenticated
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and (
+    public.is_super_admin()
+    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  )
+);
 
 drop policy if exists "Usuarios actualizan sus egresos" on public.egresos;
 
@@ -526,7 +867,8 @@ using (
     select 1
     from public.ventas
     where ventas.id = detalle_ventas.venta_id
-      and ventas.user_id = auth.uid()
+      and (public.is_super_admin() or ventas.restaurante_id = public.current_restaurant_id())
+      and (public.is_super_admin() or public.current_restaurant_is_active())
   )
 );
 
@@ -534,5 +876,11 @@ drop policy if exists "Autenticados gestionan movimientos" on public.movimientos
 create policy "Autenticados gestionan movimientos"
 on public.movimientos_inventario for all
 to authenticated
-using (true)
-with check (true);
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+)
+with check (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);

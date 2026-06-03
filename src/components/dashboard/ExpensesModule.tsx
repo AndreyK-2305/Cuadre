@@ -15,11 +15,12 @@ import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense } from "@/types/app"
 
 type ExpensesModuleProps = {
+  restaurantId: string
   refreshSignal: number
   onChanged: () => void
 }
 
-export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps) {
+export function ExpensesModule({ restaurantId, refreshSignal, onChanged }: ExpensesModuleProps) {
   const today = formatDateKey()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [form, setForm] = useState<ExpenseForm>(() => createEmptyExpenseForm(today))
@@ -62,7 +63,10 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
     setError("")
     setNotice("")
 
-    const payload = buildExpensePayload(form)
+    const payload = {
+      ...buildExpensePayload(form),
+      restaurante_id: restaurantId
+    }
     const validationError = validateExpensePayload(payload)
 
     if (validationError) {
