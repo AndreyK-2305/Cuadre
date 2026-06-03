@@ -1,10 +1,10 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Building2, Check, Edit3, Plus, ShieldCheck } from "lucide-react"
+import { ArrowLeft, Building2, Check, Edit3, KeyRound, Plus, ShieldCheck } from "lucide-react"
 import { useDashboardSession } from "@/components/dashboard/useDashboardSession"
 import { createRestaurant, fetchRestaurants, updateRestaurant } from "@/lib/data/restaurants"
-import type { Restaurant, RestaurantWritePayload, SubscriptionLevel } from "@/types/app"
+import type { Restaurant, RestaurantCreatePayload, RestaurantWritePayload, SubscriptionLevel } from "@/types/app"
 
 type RestaurantForm = {
   nombre: string
@@ -12,6 +12,7 @@ type RestaurantForm = {
   telefono: string
   nivel_suscripcion: SubscriptionLevel
   fecha_suscripcion: string
+  admin_password: string
   activo: boolean
 }
 
@@ -21,6 +22,7 @@ const emptyForm: RestaurantForm = {
   telefono: "",
   nivel_suscripcion: "Basico",
   fecha_suscripcion: new Date().toISOString().slice(0, 10),
+  admin_password: "",
   activo: true
 }
 
@@ -80,6 +82,7 @@ export function AdminShell() {
       telefono: restaurant.telefono,
       nivel_suscripcion: restaurant.nivel_suscripcion,
       fecha_suscripcion: restaurant.fecha_suscripcion,
+      admin_password: "",
       activo: restaurant.activo
     })
   }
@@ -105,9 +108,18 @@ export function AdminShell() {
       return
     }
 
+    if (!editingId && form.admin_password.trim().length < 6) {
+      setError("La contrasena del administrador debe tener minimo 6 caracteres.")
+      setSaving(false)
+      return
+    }
+
     const response = editingId
       ? await updateRestaurant(editingId, payload)
-      : await createRestaurant(payload)
+      : await createRestaurant({
+        ...payload,
+        admin_password: form.admin_password.trim()
+      } satisfies RestaurantCreatePayload)
 
     setSaving(false)
 
@@ -199,6 +211,25 @@ export function AdminShell() {
               required
             />
           </div>
+
+          {!editingId && (
+            <div className="field">
+              <label htmlFor="restaurant-password">Contrasena inicial</label>
+              <div className="admin-password-field">
+                <KeyRound size={18} aria-hidden="true" />
+                <input
+                  id="restaurant-password"
+                  type="password"
+                  value={form.admin_password}
+                  onChange={(event) => updateForm("admin_password", event.target.value)}
+                  placeholder="Minimo 6 caracteres"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="inline-grid">
             <div className="field">

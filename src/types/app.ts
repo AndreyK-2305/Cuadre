@@ -19,6 +19,10 @@ export type RestaurantWritePayload = Pick<
   "nombre" | "admin_email" | "telefono" | "nivel_suscripcion" | "fecha_suscripcion" | "activo"
 >
 
+export type RestaurantCreatePayload = RestaurantWritePayload & {
+  admin_password: string
+}
+
 export type UserProfile = {
   user_id: string
   email: string
