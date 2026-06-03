@@ -306,7 +306,7 @@ function upsertAdminProfile(serviceClient: SupabaseClient, userId: string, resta
 }
 
 function createPendingPassword() {
-  return `${randomUUID()}-${randomUUID()}`
+  return `${randomUUID()}${randomUUID().slice(0, 20)}`
 }
 
 function createAdminMetadata(name: string, passwordPending: boolean) {
