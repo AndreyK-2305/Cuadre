@@ -24,7 +24,7 @@ export async function createRestaurant(payload: RestaurantCreatePayload): Promis
   if (sessionError || !accessToken) {
     return {
       data: null,
-      error: { message: sessionError?.message ?? "Inicia sesion para registrar restaurantes." }
+      error: { message: sessionError?.message ?? "Inicia sesion para registrar emprendimientos." }
     }
   }
 
@@ -42,7 +42,7 @@ export async function createRestaurant(payload: RestaurantCreatePayload): Promis
   if (!response.ok) {
     return {
       data: null,
-      error: { message: body?.error ?? "No se pudo registrar el restaurante." }
+      error: { message: body?.error ?? "No se pudo registrar el emprendimiento." }
     }
   }
 
@@ -62,6 +62,21 @@ export async function updateRestaurant(id: string, payload: RestaurantWritePaylo
   return response
 }
 
+export async function changeRestaurantAdminPassword(restaurantId: string, password: string): Promise<DataResponse<null>> {
+  return updateRestaurantAdminAccess({
+    action: "change",
+    restaurant_id: restaurantId,
+    password
+  })
+}
+
+export async function resetRestaurantAdminPassword(restaurantId: string): Promise<DataResponse<null>> {
+  return updateRestaurantAdminAccess({
+    action: "reset",
+    restaurant_id: restaurantId
+  })
+}
+
 function syncRestaurantAdmin(restaurantId: string, adminEmail: string) {
   return supabase
     .from("usuarios")
@@ -70,4 +85,43 @@ function syncRestaurantAdmin(restaurantId: string, adminEmail: string) {
       rol: "Administrador"
     })
     .ilike("email", adminEmail)
+}
+
+async function updateRestaurantAdminAccess(payload: {
+  action: "change" | "reset"
+  restaurant_id: string
+  password?: string
+}): Promise<DataResponse<null>> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const accessToken = sessionData.session?.access_token
+
+  if (sessionError || !accessToken) {
+    return {
+      data: null,
+      error: { message: sessionError?.message ?? "Inicia sesion para gestionar accesos." }
+    }
+  }
+
+  const response = await fetch("/api/admin/restaurants", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  })
+
+  const body = await response.json().catch(() => null) as { error?: string } | null
+
+  if (!response.ok) {
+    return {
+      data: null,
+      error: { message: body?.error ?? "No se pudo actualizar el acceso." }
+    }
+  }
+
+  return {
+    data: null,
+    error: null
+  }
 }

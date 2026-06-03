@@ -85,7 +85,7 @@ export function useDashboardSession() {
   }, [isSigningOut, router])
 
   const sessionLabel = useMemo(() => sessionEmail || "Cuenta autenticada", [sessionEmail])
-  const businessName = profile?.restaurante?.nombre ?? (profile?.rol === "SuperAdministrador" ? "Todos los restaurantes" : "Negocio sin asignar")
+  const businessName = profile?.restaurante?.nombre ?? (profile?.rol === "SuperAdministrador" ? "Todos los emprendimientos" : "Negocio sin asignar")
   const restaurantId = profile?.restaurante_id ?? ""
   const canAccessAdmin = profile?.rol === "SuperAdministrador"
 

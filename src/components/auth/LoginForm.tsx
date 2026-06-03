@@ -5,13 +5,17 @@ import { useRouter } from "next/navigation"
 import { LogIn, ShieldCheck } from "lucide-react"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
 
+type PasswordMode = "unknown" | "signin" | "setup"
+
 export function LoginForm() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [passwordMode, setPasswordMode] = useState<PasswordMode>("unknown")
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
 
   useEffect(() => {
     let mounted = true
@@ -42,15 +46,43 @@ export function LoginForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError("")
+    setNotice("")
 
     if (!isSupabaseConfigured) {
-      setError(
-        "Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local."
-      )
+      setError("Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local.")
+      return
+    }
+
+    if (passwordMode === "unknown") {
+      await checkPasswordStatus()
       return
     }
 
     setLoading(true)
+
+    if (passwordMode === "setup") {
+      const response = await fetch("/api/auth/admin-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      })
+
+      const body = await response.json().catch(() => null) as { error?: string } | null
+
+      if (!response.ok) {
+        setLoading(false)
+        setError(body?.error ?? "No se pudo configurar la contrasena.")
+        return
+      }
+
+      setNotice("Contrasena configurada. Abriendo el panel...")
+    }
+
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -65,6 +97,31 @@ export function LoginForm() {
     router.replace("/dashboard")
   }
 
+  function handleEmailChange(value: string) {
+    setEmail(value)
+    setPassword("")
+    setPasswordMode("unknown")
+    setError("")
+    setNotice("")
+  }
+
+  async function checkPasswordStatus() {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (!normalizedEmail) {
+      setError("Ingresa tu correo autorizado.")
+      return
+    }
+
+    setLoading(true)
+    const response = await fetch(`/api/auth/admin-password?email=${encodeURIComponent(normalizedEmail)}`)
+    const body = await response.json().catch(() => null) as { passwordPending?: boolean } | null
+    setLoading(false)
+
+    setPasswordMode(body?.passwordPending ? "setup" : "signin")
+    setNotice(body?.passwordPending ? "Crea tu contrasena para activar el acceso." : "")
+  }
+
   if (checkingSession) {
     return <main className="loading-screen">Verificando sesion...</main>
   }
@@ -76,8 +133,8 @@ export function LoginForm() {
           <img src="/img/logo.png" alt="Cuadre" />
           <div>
             <span className="login-eyebrow">Panel operativo</span>
-              <h1>Cuadre</h1>
-            <p>Control de inventario, ventas y reportes para pequeños negocios.</p>
+            <h1>Cuadre</h1>
+            <p>Control de inventario, ventas y reportes para pequenos negocios.</p>
           </div>
         </div>
 
@@ -88,45 +145,54 @@ export function LoginForm() {
         )}
 
         <form className="login-card" onSubmit={handleSubmit}>
-            <div className="login-card-header login-card-note">
+          <div className="login-card-header login-card-note">
+            <p>Usa el correo autorizado para abrir el panel de ventas y operacion.</p>
+          </div>
 
-
-              <p>Usa el correo autorizado para abrir el panel de ventas y operación.</p>
-            </div>
           <div className="field">
             <label htmlFor="email">Correo</label>
             <input
               id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => handleEmailChange(event.target.value)}
               placeholder="admin@cuadre.app"
               autoComplete="email"
               required
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Tu contraseña"
-              autoComplete="current-password"
-              required
-            />
-          </div>
+          {passwordMode !== "unknown" && (
+            <div className="field">
+              <label htmlFor="password">{passwordMode === "setup" ? "Crear contrasena" : "Contrasena"}</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder={passwordMode === "setup" ? "Minimo 6 caracteres" : "Tu contrasena"}
+                autoComplete={passwordMode === "setup" ? "new-password" : "current-password"}
+                required
+                minLength={passwordMode === "setup" ? 6 : undefined}
+              />
+            </div>
+          )}
 
           {error && <div className="alert">{error}</div>}
+          {notice && <div className="notice">{notice}</div>}
 
           <button className="button primary" type="submit" disabled={loading}>
             {loading ? <ShieldCheck size={18} /> : <LogIn size={18} />}
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? "Procesando..." : getSubmitLabel(passwordMode)}
           </button>
         </form>
       </section>
     </main>
   )
+}
+
+function getSubmitLabel(passwordMode: PasswordMode) {
+  if (passwordMode === "unknown") return "Continuar"
+  if (passwordMode === "setup") return "Crear contrasena y entrar"
+  return "Entrar"
 }

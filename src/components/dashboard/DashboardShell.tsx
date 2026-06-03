@@ -89,7 +89,7 @@ export function DashboardShell() {
     if (!restaurantId && profile?.rol !== "SuperAdministrador") {
       return (
         <section className="panel empty-state">
-          Este usuario aun no tiene un restaurante asignado. Un SuperAdministrador debe asociarlo desde /admin.
+          Este usuario aun no tiene un emprendimiento asignado. Un SuperAdministrador debe asociarlo desde /admin.
         </section>
       )
     }
