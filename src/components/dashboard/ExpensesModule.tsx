@@ -177,7 +177,7 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
         </form>
 
         <section className="metric expense-summary">
-          <div>
+          <div className="expense-summary-main">
             <span>Total de egresos hoy</span>
             <strong>{formatCurrency(totalExpenses)}</strong>
           </div>
@@ -191,7 +191,7 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
               <b>{formatDateForExpense(today)}</b>
             </div>
           </div>
-          <div className="actions-row">
+          <div className="actions-row expense-summary-note">
             <CalendarDays size={18} aria-hidden="true" />
             <span>Operacion diaria</span>
           </div>
