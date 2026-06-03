@@ -24,10 +24,11 @@ import {
 import type { InventoryMovementType, Product } from "@/types/app"
 
 type InventoryModuleProps = {
+  restaurantId: string
   onChanged: () => void
 }
 
-export function InventoryModule({ onChanged }: InventoryModuleProps) {
+export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -120,6 +121,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
     nota: string
   ) {
     const { error: movementError } = await createInventoryMovement({
+      restaurante_id: restaurantId,
       producto_id: product.id,
       tipo_movimiento,
       cantidad,
@@ -181,7 +183,7 @@ export function InventoryModule({ onChanged }: InventoryModuleProps) {
         replaceProduct(updatedProduct)
         setNotice(getProductSavedNotice(updatedProduct))
       } else {
-        const { data, error: insertError } = await createProduct(payload)
+        const { data, error: insertError } = await createProduct(payload, restaurantId)
 
         if (insertError) throw new Error(insertError.message)
 

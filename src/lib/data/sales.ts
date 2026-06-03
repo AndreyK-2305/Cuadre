@@ -5,10 +5,11 @@ export type SaleRegistrationItem = {
   cantidad: number
 }
 
-export function registerSale(items: SaleRegistrationItem[], cashReceived: number) {
+export function registerSale(items: SaleRegistrationItem[], cashReceived: number, restaurantId: string) {
   return supabase.rpc("registrar_venta", {
     p_items: items,
-    p_dinero_recibido: cashReceived
+    p_dinero_recibido: cashReceived,
+    p_restaurante_id: restaurantId
   })
 }
 
@@ -29,7 +30,7 @@ export function createSalesReportQuery(dateFrom: string, dateTo: string) {
   let salesQuery = supabase
     .from("ventas")
     .select(
-      "id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
+      "id, restaurante_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
     )
     .eq("eliminado", false)
     .order("fecha", { ascending: false })
@@ -50,7 +51,7 @@ export function createVoidedSalesReportQuery(dateFrom: string, dateTo: string) {
   let salesQuery = supabase
     .from("ventas")
     .select(
-      "id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
+      "id, restaurante_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
     )
     .eq("eliminado", true)
     .order("eliminado_at", { ascending: false })

@@ -14,8 +14,15 @@ export function fetchActiveSaleProducts() {
     .order("nombre", { ascending: true })
 }
 
-export function createProduct(payload: ProductWritePayload) {
-  return supabase.from("productos").insert(payload).select("*").single()
+export function createProduct(payload: ProductWritePayload, restaurantId: string) {
+  return supabase
+    .from("productos")
+    .insert({
+      ...payload,
+      restaurante_id: restaurantId
+    })
+    .select("*")
+    .single()
 }
 
 export function updateProduct(id: string, payload: ProductWritePayload) {

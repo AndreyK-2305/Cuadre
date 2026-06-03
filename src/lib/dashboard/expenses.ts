@@ -14,7 +14,9 @@ export function createEmptyExpenseForm(dateKey: string): ExpenseForm {
   }
 }
 
-export function buildExpensePayload(form: ExpenseForm): ExpenseWritePayload {
+type BaseExpensePayload = Omit<ExpenseWritePayload, "restaurante_id">
+
+export function buildExpensePayload(form: ExpenseForm): BaseExpensePayload {
   return {
     descripcion: form.descripcion.trim(),
     valor: Number(form.valor),
@@ -22,7 +24,7 @@ export function buildExpensePayload(form: ExpenseForm): ExpenseWritePayload {
   }
 }
 
-export function validateExpensePayload(payload: ExpenseWritePayload) {
+export function validateExpensePayload(payload: BaseExpensePayload) {
   if (!payload.descripcion) return "La descripcion es obligatoria."
   if (!payload.fecha_dia) return "Selecciona la fecha del egreso."
   if (!Number.isFinite(payload.valor) || payload.valor <= 0) return "El valor debe ser mayor a cero."

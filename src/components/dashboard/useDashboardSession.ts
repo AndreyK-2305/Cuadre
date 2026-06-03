@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
+import { fetchCurrentUserProfile } from "@/lib/data/restaurants"
+import type { UserProfile } from "@/types/app"
 
 export function useDashboardSession() {
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [sessionEmail, setSessionEmail] = useState("")
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileError, setProfileError] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -28,6 +32,17 @@ export function useDashboardSession() {
       }
 
       setSessionEmail(data.session.user.email ?? "Cuenta autenticada")
+
+      const { data: profileData, error } = await fetchCurrentUserProfile()
+      if (!mounted) return
+
+      if (error) {
+        setProfileError(error.message)
+        setLoading(false)
+        return
+      }
+
+      setProfile(normalizeProfile(profileData))
       setLoading(false)
     }
 
@@ -42,7 +57,7 @@ export function useDashboardSession() {
 
       if (mounted) {
         setSessionEmail(nextSession.user.email ?? "Cuenta autenticada")
-        setLoading(false)
+        void loadSession()
       }
     })
 
@@ -70,12 +85,28 @@ export function useDashboardSession() {
   }, [isSigningOut, router])
 
   const sessionLabel = useMemo(() => sessionEmail || "Cuenta autenticada", [sessionEmail])
+  const businessName = profile?.restaurante?.nombre ?? (profile?.rol === "SuperAdministrador" ? "Todos los restaurantes" : "Negocio sin asignar")
+  const restaurantId = profile?.restaurante_id ?? ""
+  const canAccessAdmin = profile?.rol === "SuperAdministrador"
 
   return {
+    businessName,
+    canAccessAdmin,
     handleSignOut,
     isSigningOut,
     loading,
+    profile,
+    profileError,
+    restaurantId,
     sessionEmail,
     sessionLabel
+  }
+}
+
+function normalizeProfile(data: unknown): UserProfile {
+  const profile = data as UserProfile & { restaurante?: UserProfile["restaurante"] | UserProfile["restaurante"][] }
+  return {
+    ...profile,
+    restaurante: Array.isArray(profile.restaurante) ? profile.restaurante[0] ?? null : profile.restaurante ?? null
   }
 }

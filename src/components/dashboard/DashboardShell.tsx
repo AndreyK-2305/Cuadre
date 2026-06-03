@@ -9,6 +9,7 @@ import {
   ChevronDown,
   LogOut,
   ReceiptText,
+  ShieldCheck,
   ShoppingCart,
   UserRound
 } from "lucide-react"
@@ -30,7 +31,17 @@ const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] 
 ]
 
 export function DashboardShell() {
-  const { handleSignOut, isSigningOut, loading, sessionLabel } = useDashboardSession()
+  const {
+    businessName,
+    canAccessAdmin,
+    handleSignOut,
+    isSigningOut,
+    loading,
+    profile,
+    profileError,
+    restaurantId,
+    sessionLabel
+  } = useDashboardSession()
   const [activeModule, setActiveModule] = useState<ActiveModule>("ventas")
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
@@ -75,20 +86,29 @@ export function DashboardShell() {
   )
 
   const activeContent = useMemo(() => {
-    if (activeModule === "inventario") return <InventoryModule onChanged={handleDataChanged} />
+    if (!restaurantId && profile?.rol !== "SuperAdministrador") {
+      return (
+        <section className="panel empty-state">
+          Este usuario aun no tiene un restaurante asignado. Un SuperAdministrador debe asociarlo desde /admin.
+        </section>
+      )
+    }
+
+    if (activeModule === "inventario") return <InventoryModule restaurantId={restaurantId} onChanged={handleDataChanged} />
     if (activeModule === "egresos") {
-      return <ExpensesModule refreshSignal={refreshSignal} onChanged={handleDataChanged} />
+      return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
     }
     if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} />
     return (
       <SalesModule
+        restaurantId={restaurantId}
         refreshSignal={refreshSignal}
         cartOpenSignal={cartOpenSignal}
         onCartStateChange={setMobileCartState}
         onSaleCompleted={handleDataChanged}
       />
     )
-  }, [activeModule, cartOpenSignal, handleDataChanged, refreshSignal])
+  }, [activeModule, cartOpenSignal, handleDataChanged, profile?.rol, refreshSignal, restaurantId])
 
   const openMobileCart = () => {
     setSessionMenuOpen(false)
@@ -119,6 +139,10 @@ export function DashboardShell() {
     return <main className="loading-screen">Cargando Cuadre...</main>
   }
 
+  if (profileError) {
+    return <main className="loading-screen">No se pudo cargar el perfil: {profileError}</main>
+  }
+
   return (
     <main className="dashboard">
       <aside className="sidebar" aria-label="Navegacion principal">
@@ -127,7 +151,7 @@ export function DashboardShell() {
             C
           </span>
           <div>
-            <strong>Cuadre</strong>
+            <strong>{businessName}</strong>
             <small>Operaciones comerciales</small>
           </div>
         </div>
@@ -153,6 +177,13 @@ export function DashboardShell() {
         </nav>
 
         <div className="sidebar-footer">
+          {canAccessAdmin && (
+            <a className="button subtle sidebar-admin-link" href="/admin">
+              <ShieldCheck size={17} aria-hidden="true" />
+              Panel admin
+            </a>
+          )}
+
           <div className="sidebar-status" aria-label="Sesion activa">
             <button
               className="sidebar-status session-trigger"
@@ -163,8 +194,8 @@ export function DashboardShell() {
             >
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
-                <strong>Sesion activa</strong>
-                <span className="sidebar-session-label">Conectado como</span>
+                <strong>{businessName}</strong>
+                <span className="sidebar-session-label">Cuenta</span>
                 <small title={sessionLabel}>{sessionLabel}</small>
               </div>
               <ChevronDown className="session-trigger-chevron" size={16} aria-hidden="true" />
@@ -191,7 +222,7 @@ export function DashboardShell() {
             >
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
-                <strong>Sesion iniciada</strong>
+                <strong>{businessName}</strong>
                 <small title={sessionLabel}>{sessionLabel}</small>
               </div>
               <ChevronDown className="session-trigger-chevron" size={15} aria-hidden="true" />
