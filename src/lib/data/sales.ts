@@ -12,10 +12,20 @@ export function registerSale(items: SaleRegistrationItem[], cashReceived: number
   })
 }
 
+export function voidSale(id: string, reason: string) {
+  return supabase.rpc("anular_venta", {
+    p_venta_id: id,
+    p_motivo: reason
+  })
+}
+
 export function createSalesReportQuery(dateFrom: string, dateTo: string) {
   let salesQuery = supabase
     .from("ventas")
-    .select("id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, detalle_ventas(*)")
+    .select(
+      "id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
+    )
+    .eq("eliminado", false)
     .order("fecha", { ascending: false })
     .limit(1000)
 

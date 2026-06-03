@@ -46,6 +46,10 @@ create table if not exists public.ventas (
   total integer not null check (total >= 0),
   dinero_recibido integer not null check (dinero_recibido >= 0),
   cambio integer not null check (cambio >= 0),
+  eliminado boolean not null default false,
+  eliminado_motivo text,
+  eliminado_at timestamptz,
+  eliminado_por uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   unique (fecha_dia, folio_diario)
 );
@@ -57,9 +61,67 @@ create table if not exists public.egresos (
   valor integer not null check (valor > 0),
   fecha timestamptz not null default now(),
   fecha_dia date not null default ((timezone('America/Bogota', now()))::date),
+  eliminado boolean not null default false,
+  eliminado_motivo text,
+  eliminado_at timestamptz,
+  eliminado_por uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.ventas
+add column if not exists eliminado boolean not null default false,
+add column if not exists eliminado_motivo text,
+add column if not exists eliminado_at timestamptz,
+add column if not exists eliminado_por uuid references auth.users(id) on delete set null;
+
+alter table public.egresos
+add column if not exists eliminado boolean not null default false,
+add column if not exists eliminado_motivo text,
+add column if not exists eliminado_at timestamptz,
+add column if not exists eliminado_por uuid references auth.users(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'ventas_anulacion_motivo_check'
+      and conrelid = 'public.ventas'::regclass
+  ) then
+    alter table public.ventas
+    add constraint ventas_anulacion_motivo_check
+    check (
+      eliminado = false
+      or (
+        eliminado_motivo is not null
+        and btrim(eliminado_motivo) <> ''
+        and eliminado_at is not null
+        and eliminado_por is not null
+      )
+    );
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'egresos_anulacion_motivo_check'
+      and conrelid = 'public.egresos'::regclass
+  ) then
+    alter table public.egresos
+    add constraint egresos_anulacion_motivo_check
+    check (
+      eliminado = false
+      or (
+        eliminado_motivo is not null
+        and btrim(eliminado_motivo) <> ''
+        and eliminado_at is not null
+        and eliminado_por is not null
+      )
+    );
+  end if;
+end;
+$$;
 
 create table if not exists public.detalle_ventas (
   id uuid primary key default gen_random_uuid(),
@@ -88,7 +150,9 @@ create table if not exists public.movimientos_inventario (
 create index if not exists idx_productos_activo on public.productos(activo);
 create index if not exists idx_productos_tipo_item on public.productos(tipo_item);
 create index if not exists idx_ventas_fecha_dia on public.ventas(fecha_dia desc);
+create index if not exists idx_ventas_activas_fecha_dia on public.ventas(user_id, fecha_dia desc) where eliminado = false;
 create index if not exists idx_egresos_user_fecha_dia on public.egresos(user_id, fecha_dia desc);
+create index if not exists idx_egresos_activos_fecha_dia on public.egresos(user_id, fecha_dia desc) where eliminado = false;
 create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(venta_id);
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 
@@ -260,6 +324,84 @@ $$;
 
 grant execute on function public.registrar_venta(jsonb, integer) to authenticated;
 
+create or replace function public.anular_venta(
+  p_venta_id uuid,
+  p_motivo text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_motivo text := btrim(coalesce(p_motivo, ''));
+begin
+  if v_user is null then
+    raise exception 'Debes iniciar sesion para anular ventas';
+  end if;
+
+  if v_motivo = '' then
+    raise exception 'El motivo de anulacion es obligatorio';
+  end if;
+
+  update public.ventas
+  set
+    eliminado = true,
+    eliminado_motivo = v_motivo,
+    eliminado_at = now(),
+    eliminado_por = v_user
+  where id = p_venta_id
+    and user_id = v_user
+    and eliminado = false;
+
+  if not found then
+    raise exception 'No se encontro una venta activa para anular';
+  end if;
+end;
+$$;
+
+grant execute on function public.anular_venta(uuid, text) to authenticated;
+
+create or replace function public.anular_egreso(
+  p_egreso_id uuid,
+  p_motivo text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_motivo text := btrim(coalesce(p_motivo, ''));
+begin
+  if v_user is null then
+    raise exception 'Debes iniciar sesion para anular egresos';
+  end if;
+
+  if v_motivo = '' then
+    raise exception 'El motivo de anulacion es obligatorio';
+  end if;
+
+  update public.egresos
+  set
+    eliminado = true,
+    eliminado_motivo = v_motivo,
+    eliminado_at = now(),
+    eliminado_por = v_user
+  where id = p_egreso_id
+    and user_id = v_user
+    and eliminado = false;
+
+  if not found then
+    raise exception 'No se encontro un egreso activo para anular';
+  end if;
+end;
+$$;
+
+grant execute on function public.anular_egreso(uuid, text) to authenticated;
+
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
@@ -299,6 +441,8 @@ on public.ventas for insert
 to authenticated
 with check (auth.uid() = user_id);
 
+drop policy if exists "Usuarios actualizan sus ventas" on public.ventas;
+
 drop policy if exists "Usuarios leen sus egresos" on public.egresos;
 create policy "Usuarios leen sus egresos"
 on public.egresos for select
@@ -312,17 +456,8 @@ to authenticated
 with check (auth.uid() = user_id);
 
 drop policy if exists "Usuarios actualizan sus egresos" on public.egresos;
-create policy "Usuarios actualizan sus egresos"
-on public.egresos for update
-to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
 
 drop policy if exists "Usuarios eliminan sus egresos" on public.egresos;
-create policy "Usuarios eliminan sus egresos"
-on public.egresos for delete
-to authenticated
-using (auth.uid() = user_id);
 
 drop policy if exists "Usuarios leen detalle de sus ventas" on public.detalle_ventas;
 create policy "Usuarios leen detalle de sus ventas"

@@ -11,7 +11,8 @@ import {
   type ExpenseForm
 } from "@/lib/dashboard/expenses"
 import { getPresetDateRange, type ReportPreset } from "@/lib/dashboard/reports"
-import { createExpense, createExpensesReportQuery, deleteExpense } from "@/lib/data/expenses"
+import { createExpense, createExpensesReportQuery, voidExpense } from "@/lib/data/expenses"
+import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense } from "@/types/app"
 
 type ExpensesModuleProps = {
@@ -27,7 +28,8 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
   const [form, setForm] = useState<ExpenseForm>(() => createEmptyExpenseForm(today))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [deletingId, setDeletingId] = useState("")
+  const [voidingExpense, setVoidingExpense] = useState<Expense | null>(null)
+  const [savingVoid, setSavingVoid] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [dateFrom, setDateFrom] = useState(today)
@@ -120,22 +122,27 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
     onChanged()
   }
 
-  async function handleDelete(expense: Expense) {
-    setDeletingId(expense.id)
+  async function handleVoidExpense(reason: string) {
+    if (!voidingExpense) return
+
+    const expense = voidingExpense
+    setSavingVoid(true)
     setError("")
     setNotice("")
 
-    const { error: deleteError } = await deleteExpense(expense.id)
+    const { error: voidError } = await voidExpense(expense.id, reason)
 
-    setDeletingId("")
+    setSavingVoid(false)
 
-    if (deleteError) {
-      setError(deleteError.message)
+    if (voidError) {
+      setVoidingExpense(null)
+      setError(voidError.message)
       return
     }
 
     setExpenses((current) => current.filter((item) => item.id !== expense.id))
-    setNotice(`Egreso eliminado: ${expense.descripcion}.`)
+    setVoidingExpense(null)
+    setNotice(`Egreso anulado: ${expense.descripcion}.`)
     onChanged()
   }
 
@@ -284,15 +291,26 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
               <button
                 className="button subtle"
                 type="button"
-                onClick={() => handleDelete(expense)}
-                disabled={deletingId === expense.id}
+                onClick={() => setVoidingExpense(expense)}
+                disabled={savingVoid}
               >
                 <Trash2 size={16} aria-hidden="true" />
-                {deletingId === expense.id ? "Eliminando..." : "Eliminar"}
+                Anular
               </button>
             </article>
           ))}
         </section>
+      )}
+
+      {voidingExpense && (
+        <VoidReasonModal
+          title="Anular egreso"
+          description={`Confirma por que se anula "${voidingExpense.descripcion}".`}
+          confirmLabel="Anular egreso"
+          saving={savingVoid}
+          onClose={() => setVoidingExpense(null)}
+          onConfirm={handleVoidExpense}
+        />
       )}
     </div>
   )

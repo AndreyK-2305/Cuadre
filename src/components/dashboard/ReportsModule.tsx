@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Boxes, CalendarDays, Filter, History, TrendingUp } from "lucide-react"
+import { Boxes, CalendarDays, Filter, History, Trash2, TrendingUp } from "lucide-react"
 import {
   formatCurrency,
   formatDateKey,
@@ -17,9 +17,10 @@ import {
   getTopProducts,
   type ReportPreset
 } from "@/lib/dashboard/reports"
-import { createExpensesReportQuery } from "@/lib/data/expenses"
+import { createExpensesReportQuery, voidExpense } from "@/lib/data/expenses"
 import { fetchProducts } from "@/lib/data/products"
-import { createSalesReportQuery } from "@/lib/data/sales"
+import { createSalesReportQuery, voidSale } from "@/lib/data/sales"
+import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense, Product, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
@@ -35,6 +36,10 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [voidingSale, setVoidingSale] = useState<Sale | null>(null)
+  const [voidingExpense, setVoidingExpense] = useState<Expense | null>(null)
+  const [savingVoid, setSavingVoid] = useState(false)
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
   const [activePreset, setActivePreset] = useState<ReportPreset>("today")
@@ -111,6 +116,52 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     setDateTo(value)
   }
 
+  async function handleVoidSale(reason: string) {
+    if (!voidingSale) return
+
+    const sale = voidingSale
+    setSavingVoid(true)
+    setError("")
+    setNotice("")
+
+    const { error: voidError } = await voidSale(sale.id, reason)
+
+    setSavingVoid(false)
+
+    if (voidError) {
+      setVoidingSale(null)
+      setError(voidError.message)
+      return
+    }
+
+    setSales((current) => current.filter((item) => item.id !== sale.id))
+    setVoidingSale(null)
+    setNotice(`${saleLabel(sale.folio_diario, sale.fecha_dia)} anulada. Ya no influye en este reporte.`)
+  }
+
+  async function handleVoidExpense(reason: string) {
+    if (!voidingExpense) return
+
+    const expense = voidingExpense
+    setSavingVoid(true)
+    setError("")
+    setNotice("")
+
+    const { error: voidError } = await voidExpense(expense.id, reason)
+
+    setSavingVoid(false)
+
+    if (voidError) {
+      setVoidingExpense(null)
+      setError(voidError.message)
+      return
+    }
+
+    setExpenses((current) => current.filter((item) => item.id !== expense.id))
+    setVoidingExpense(null)
+    setNotice(`Egreso anulado: ${expense.descripcion}. Ya no influye en este reporte.`)
+  }
+
   return (
     <div className="module">
       <div className="module-title">
@@ -121,6 +172,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       </div>
 
       {error && <div className="alert">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
       <section className="panel report-filters">
         <div className="filter-title">
@@ -223,6 +275,15 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                     </span>
                   </div>
                   <SaleDetails details={sale.detalle_ventas ?? []} />
+                  <button
+                    className="button subtle"
+                    type="button"
+                    onClick={() => setVoidingSale(sale)}
+                    disabled={savingVoid}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Anular venta
+                  </button>
                 </article>
               ))}
 
@@ -245,6 +306,15 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                     <strong>{formatCurrency(expense.valor)}</strong>
                     <span className="muted">{expense.descripcion}</span>
                   </div>
+                  <button
+                    className="button subtle"
+                    type="button"
+                    onClick={() => setVoidingExpense(expense)}
+                    disabled={savingVoid}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Anular egreso
+                  </button>
                 </article>
               ))}
             </div>
@@ -309,6 +379,28 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
             </aside>
           </section>
         </>
+      )}
+
+      {voidingSale && (
+        <VoidReasonModal
+          title="Anular venta"
+          description={`Confirma por que se anula ${saleLabel(voidingSale.folio_diario, voidingSale.fecha_dia)}.`}
+          confirmLabel="Anular venta"
+          saving={savingVoid}
+          onClose={() => setVoidingSale(null)}
+          onConfirm={handleVoidSale}
+        />
+      )}
+
+      {voidingExpense && (
+        <VoidReasonModal
+          title="Anular egreso"
+          description={`Confirma por que se anula "${voidingExpense.descripcion}".`}
+          confirmLabel="Anular egreso"
+          saving={savingVoid}
+          onClose={() => setVoidingExpense(null)}
+          onConfirm={handleVoidExpense}
+        />
       )}
     </div>
   )

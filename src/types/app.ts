@@ -34,6 +34,10 @@ export type Expense = {
   valor: number
   fecha: string
   fecha_dia: string
+  eliminado: boolean
+  eliminado_motivo: string | null
+  eliminado_at: string | null
+  eliminado_por: string | null
   created_at: string
   updated_at: string
 }
@@ -62,6 +66,10 @@ export type Sale = {
   total: number
   dinero_recibido: number
   cambio: number
+  eliminado: boolean
+  eliminado_motivo: string | null
+  eliminado_at: string | null
+  eliminado_por: string | null
   detalle_ventas?: SaleItem[]
 }
 
