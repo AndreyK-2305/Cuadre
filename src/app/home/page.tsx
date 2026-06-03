@@ -7,7 +7,6 @@ import {
   ClipboardList,
   FileText,
   MessageCircle,
-  ReceiptText,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
@@ -15,7 +14,9 @@ import {
   TrendingUp
 } from "lucide-react"
 import { HomeNav } from "@/components/home/HomeNav"
+import { HomePreviewCard } from "@/components/home/HomePreviewCard"
 import { HomeSalesExperience } from "@/components/home/HomeSalesExperience"
+import { HomeSectionHeading } from "@/components/home/HomeSectionHeading"
 
 const modules = [
   {
@@ -85,58 +86,21 @@ export default function Home() {
             </div>
           </div>
 
-          <aside className="landing-product-card" aria-label="Vista previa del panel Cuadre">
-            <div className="product-card-top">
-              <span className="product-card-dot" />
-              <div>
-                <strong>Ventas</strong>
-                <small>Hoy · caja activa</small>
-              </div>
-              <b>$156.000</b>
-            </div>
-            <div className="product-metrics">
-              <div>
-                <span>Catálogo</span>
-                <strong>34</strong>
-              </div>
-              <div>
-                <span>Stock bajo</span>
-                <strong>4</strong>
-              </div>
-            </div>
-            <div className="product-list">
-              {[
-                ["Café especial", "$18.000", "Listo"],
-                ["Brownie cacao", "$9.000", "Listo"],
-                ["Pan artesanal", "$12.000", "Bajo stock"]
-              ].map(([name, price, state]) => (
-                <div key={name}>
-                  <span>
-                    <strong>{name}</strong>
-                    <small>{state}</small>
-                  </span>
-                  <b>{price}</b>
-                </div>
-              ))}
-            </div>
-            <div className="product-checkout">
-              <span><ReceiptText size={17} /> Venta en curso</span>
-              <strong>5 unidades</strong>
-            </div>
-          </aside>
+          <HomePreviewCard />
         </div>
       </section>
 
       <section className="landing-band landing-intro" id="flujo">
-        <div className="landing-section-heading">
-          <span className="landing-eyebrow">Tecnología al alcance</span>
-          <h2>Digitaliza tu negocio sin instalaciones ni inversiones costosas.</h2>
+        <HomeSectionHeading
+          eyebrow="Tecnología al alcance"
+          title="Digitaliza tu negocio sin instalaciones ni inversiones costosas."
+        >
           <p>
             Cuadre funciona desde el navegador: abre sesión desde tu celular, computador o tableta
             y empieza con lo que necesitas hoy. Sin equipos especiales ni una implementación pesada
             para dar el siguiente paso.
           </p>
-        </div>
+        </HomeSectionHeading>
 
         <div className="adoption-strip" aria-label="Ventajas para empezar con Cuadre">
           {adoptionAdvantages.map((advantage) => {
@@ -174,8 +138,10 @@ export default function Home() {
         <section className="landing-band landing-proof">
           <div className="proof-panel">
             <div>
-              <span className="landing-eyebrow">Preparado para crecer</span>
-              <h2>Una base comercial flexible, no una plantilla amarrada a un solo negocio.</h2>
+              <HomeSectionHeading
+                eyebrow="Preparado para crecer"
+                title="Una base comercial flexible, no una plantilla amarrada a un solo negocio."
+              />
             </div>
             <div className="proof-grid">
               <div>

@@ -1,5 +1,9 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import "./styles/components.css"
+import "./styles/login.css"
+import "./styles/home.css"
+import "./styles/dashboard.css"
 
 export const metadata: Metadata = {
   title: "Cuadre",

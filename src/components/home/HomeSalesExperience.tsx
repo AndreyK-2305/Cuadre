@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { buildPlanWhatsappHref, defaultPublicPlanName, getPublicPlan, publicPlans } from "@/lib/plans"
+import { HomeSectionHeading } from "./HomeSectionHeading"
 
 export function HomeSalesExperience({ children }: { children: ReactNode }) {
   const [selectedPlanName, setSelectedPlanName] = useState(defaultPublicPlanName)
@@ -20,16 +21,16 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
   return (
     <>
       <section className="landing-band landing-plans" id="planes">
-        <div className="landing-section-heading split">
-          <div>
-            <span className="landing-eyebrow">Planes competitivos</span>
-            <h2>Empieza con lo necesario y escala cuando el negocio lo pida.</h2>
-          </div>
+        <HomeSectionHeading
+          eyebrow="Planes competitivos"
+          title="Empieza con lo necesario y escala cuando el negocio lo pida."
+          split
+        >
           <p>
             Las opciones mantienen una promesa simple: ordenar la operación diaria y luego sumar
             reportes, histórico y acompañamiento según el tamaño del cliente.
           </p>
-        </div>
+        </HomeSectionHeading>
 
         <div className="pricing-grid" role="radiogroup" aria-label="Selecciona un plan">
           {publicPlans.map((plan) => {
