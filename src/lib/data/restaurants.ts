@@ -1,16 +1,39 @@
 import { supabase } from "@/lib/supabase/client"
-import type { Restaurant, RestaurantCreatePayload, RestaurantWritePayload } from "@/types/app"
+import type { Restaurant, RestaurantCreatePayload, RestaurantWritePayload, UserProfile } from "@/types/app"
 
 type DataResponse<T> = {
   data: T | null
   error: { message: string } | null
 }
 
-export function fetchCurrentUserProfile() {
-  return supabase
+export async function fetchCurrentUserProfile(): Promise<DataResponse<UserProfile>> {
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  const userId = authData.user?.id
+
+  if (authError || !userId) {
+    return {
+      data: null,
+      error: { message: authError?.message ?? "No se encontro una sesion activa." }
+    }
+  }
+
+  const { data, error } = await supabase
     .from("usuarios")
     .select("user_id, email, nombre, rol, restaurante_id, restaurante:restaurantes(*)")
-    .single()
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return {
+      data: null,
+      error: { message: error?.message ?? "No se encontro el perfil de este usuario." }
+    }
+  }
+
+  return {
+    data: data as unknown as UserProfile,
+    error: null
+  }
 }
 
 export function fetchRestaurants() {
