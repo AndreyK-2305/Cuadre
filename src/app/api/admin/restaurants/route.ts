@@ -159,12 +159,23 @@ async function getAuthorizedClients(request: NextRequest) {
     }
   })
 
+  const accessToken = authorization.slice("Bearer ".length)
+  const { data: authData, error: authError } = await requesterClient.auth.getUser(accessToken)
+  const userId = authData.user?.id
+
+  if (authError || !userId) {
+    return {
+      response: NextResponse.json({ error: "Sesion administrativa no encontrada." }, { status: 401 })
+    }
+  }
+
   const { data: profile, error: profileError } = await requesterClient
     .from("usuarios")
     .select("rol")
-    .single<Pick<UserProfile, "rol">>()
+    .eq("user_id", userId)
+    .maybeSingle<Pick<UserProfile, "rol">>()
 
-  if (profileError || profile?.rol !== "SuperAdministrador") {
+  if (profileError || !profile || profile.rol !== "SuperAdministrador") {
     return {
       response: NextResponse.json({ error: "Solo un SuperAdministrador puede gestionar emprendimientos." }, { status: 403 })
     }
