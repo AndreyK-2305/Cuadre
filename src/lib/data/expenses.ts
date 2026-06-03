@@ -18,7 +18,7 @@ export function restoreExpense(id: string) {
   })
 }
 
-export function createExpensesReportQuery(dateFrom: string, dateTo: string) {
+export function createExpensesReportQuery(dateFrom: string, dateTo: string, restaurantId?: string) {
   let expensesQuery = supabase
     .from("egresos")
     .select("*")
@@ -35,10 +35,14 @@ export function createExpensesReportQuery(dateFrom: string, dateTo: string) {
     expensesQuery = expensesQuery.lte("fecha_dia", dateTo)
   }
 
+  if (restaurantId) {
+    expensesQuery = expensesQuery.eq("restaurante_id", restaurantId)
+  }
+
   return expensesQuery
 }
 
-export function createVoidedExpensesReportQuery(dateFrom: string, dateTo: string) {
+export function createVoidedExpensesReportQuery(dateFrom: string, dateTo: string, restaurantId?: string) {
   let expensesQuery = supabase
     .from("egresos")
     .select("*")
@@ -53,6 +57,10 @@ export function createVoidedExpensesReportQuery(dateFrom: string, dateTo: string
 
   if (dateTo) {
     expensesQuery = expensesQuery.lte("fecha_dia", dateTo)
+  }
+
+  if (restaurantId) {
+    expensesQuery = expensesQuery.eq("restaurante_id", restaurantId)
   }
 
   return expensesQuery

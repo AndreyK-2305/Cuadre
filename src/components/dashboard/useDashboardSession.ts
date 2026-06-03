@@ -59,7 +59,15 @@ export function useDashboardSession(options: DashboardSessionOptions = {}) {
         return
       }
 
-      setProfile(normalizeProfile(profileData))
+      const nextProfile = normalizeProfile(profileData)
+
+      if (nextProfile.rol !== "SuperAdministrador" && nextProfile.restaurante && !nextProfile.restaurante.activo) {
+        setProfileError("El acceso de este emprendimiento esta suspendido. Contacta al administrador de Cuadre.")
+        setLoading(false)
+        return
+      }
+
+      setProfile(nextProfile)
       setLoading(false)
     }
 

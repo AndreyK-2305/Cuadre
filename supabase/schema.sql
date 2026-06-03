@@ -23,6 +23,24 @@ create table if not exists public.usuarios (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.planes_suscripcion (
+  nivel text primary key check (
+    nivel in ('Gratis', 'Basico', 'Completo', 'Emprendedor')
+  ),
+  nombre text not null,
+  precio integer not null default 0 check (precio >= 0),
+  orden integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.planes_suscripcion (nivel, nombre, precio, orden)
+values
+  ('Gratis', 'Gratis', 0, 1),
+  ('Basico', 'Basico', 19000, 2),
+  ('Completo', 'Completo', 29000, 3),
+  ('Emprendedor', 'Emprendedor', 0, 4)
+on conflict (nivel) do nothing;
+
 alter table public.usuarios
 add column if not exists rol text not null default 'Administrador',
 add column if not exists restaurante_id uuid references public.restaurantes(id) on delete set null;
@@ -247,6 +265,11 @@ create trigger trg_restaurantes_updated_at
 before update on public.restaurantes
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_planes_suscripcion_updated_at on public.planes_suscripcion;
+create trigger trg_planes_suscripcion_updated_at
+before update on public.planes_suscripcion
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_egresos_updated_at on public.egresos;
 create trigger trg_egresos_updated_at
 before update on public.egresos
@@ -284,6 +307,20 @@ as $$
   select restaurante_id
   from public.usuarios
   where user_id = auth.uid()
+$$;
+
+create or replace function public.current_restaurant_is_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select restaurantes.activo
+    from public.restaurantes
+    where restaurantes.id = public.current_restaurant_id()
+  ), false)
 $$;
 
 create or replace function public.handle_new_user()
@@ -353,6 +390,10 @@ begin
 
   if p_restaurante_id is null then
     raise exception 'El restaurante de la venta es obligatorio';
+  end if;
+
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
   if not public.is_super_admin() and v_user_restaurante_id <> p_restaurante_id then
@@ -492,6 +533,10 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.ventas
   set
     eliminado = true,
@@ -532,6 +577,10 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.egresos
   set
     eliminado = true,
@@ -566,6 +615,10 @@ begin
     raise exception 'Debes iniciar sesion para restaurar ventas';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.ventas
   set eliminado = false
   where id = p_venta_id
@@ -596,6 +649,10 @@ begin
     raise exception 'Debes iniciar sesion para restaurar egresos';
   end if;
 
+  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+    raise exception 'El acceso de este emprendimiento esta suspendido';
+  end if;
+
   update public.egresos
   set eliminado = false
   where id = p_egreso_id
@@ -611,6 +668,7 @@ $$;
 grant execute on function public.restaurar_egreso(uuid) to authenticated;
 
 alter table public.restaurantes enable row level security;
+alter table public.planes_suscripcion enable row level security;
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
@@ -651,18 +709,40 @@ to authenticated
 using (public.is_super_admin())
 with check (public.is_super_admin());
 
+drop policy if exists "Planes visibles por autenticados" on public.planes_suscripcion;
+create policy "Planes visibles por autenticados"
+on public.planes_suscripcion for select
+to authenticated
+using (true);
+
+drop policy if exists "Superadministradores gestionan planes" on public.planes_suscripcion;
+create policy "Superadministradores gestionan planes"
+on public.planes_suscripcion for update
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
 drop policy if exists "Autenticados gestionan productos" on public.productos;
 create policy "Autenticados gestionan productos"
 on public.productos for all
 to authenticated
-using (public.is_super_admin() or restaurante_id = public.current_restaurant_id())
-with check (public.is_super_admin() or restaurante_id = public.current_restaurant_id());
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+)
+with check (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios leen sus ventas" on public.ventas;
 create policy "Usuarios leen sus ventas"
 on public.ventas for select
 to authenticated
-using (public.is_super_admin() or restaurante_id = public.current_restaurant_id());
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios insertan sus ventas" on public.ventas;
 create policy "Usuarios insertan sus ventas"
@@ -670,7 +750,10 @@ on public.ventas for insert
 to authenticated
 with check (
   auth.uid() = user_id
-  and (public.is_super_admin() or restaurante_id = public.current_restaurant_id())
+  and (
+    public.is_super_admin()
+    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  )
 );
 
 drop policy if exists "Usuarios actualizan sus ventas" on public.ventas;
@@ -679,7 +762,10 @@ drop policy if exists "Usuarios leen sus egresos" on public.egresos;
 create policy "Usuarios leen sus egresos"
 on public.egresos for select
 to authenticated
-using (public.is_super_admin() or restaurante_id = public.current_restaurant_id());
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);
 
 drop policy if exists "Usuarios insertan sus egresos" on public.egresos;
 create policy "Usuarios insertan sus egresos"
@@ -687,7 +773,10 @@ on public.egresos for insert
 to authenticated
 with check (
   auth.uid() = user_id
-  and (public.is_super_admin() or restaurante_id = public.current_restaurant_id())
+  and (
+    public.is_super_admin()
+    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  )
 );
 
 drop policy if exists "Usuarios actualizan sus egresos" on public.egresos;
@@ -704,6 +793,7 @@ using (
     from public.ventas
     where ventas.id = detalle_ventas.venta_id
       and (public.is_super_admin() or ventas.restaurante_id = public.current_restaurant_id())
+      and (public.is_super_admin() or public.current_restaurant_is_active())
   )
 );
 
@@ -711,5 +801,11 @@ drop policy if exists "Autenticados gestionan movimientos" on public.movimientos
 create policy "Autenticados gestionan movimientos"
 on public.movimientos_inventario for all
 to authenticated
-using (public.is_super_admin() or restaurante_id = public.current_restaurant_id())
-with check (public.is_super_admin() or restaurante_id = public.current_restaurant_id());
+using (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+)
+with check (
+  public.is_super_admin()
+  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+);

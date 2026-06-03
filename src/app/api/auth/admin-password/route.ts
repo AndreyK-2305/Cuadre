@@ -125,6 +125,7 @@ async function findAdminAccount(
     .from("restaurantes")
     .select("*")
     .ilike("admin_email", email)
+    .eq("activo", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<Restaurant>()

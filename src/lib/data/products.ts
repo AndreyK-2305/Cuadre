@@ -5,6 +5,14 @@ export function fetchProducts() {
   return supabase.from("productos").select("*").order("nombre", { ascending: true })
 }
 
+export function fetchProductsByRestaurant(restaurantId: string) {
+  return supabase
+    .from("productos")
+    .select("*")
+    .eq("restaurante_id", restaurantId)
+    .order("nombre", { ascending: true })
+}
+
 export function fetchActiveSaleProducts() {
   return supabase
     .from("productos")

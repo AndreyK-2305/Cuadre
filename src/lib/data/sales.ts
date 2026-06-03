@@ -26,7 +26,7 @@ export function restoreSale(id: string) {
   })
 }
 
-export function createSalesReportQuery(dateFrom: string, dateTo: string) {
+export function createSalesReportQuery(dateFrom: string, dateTo: string, restaurantId?: string) {
   let salesQuery = supabase
     .from("ventas")
     .select(
@@ -44,10 +44,14 @@ export function createSalesReportQuery(dateFrom: string, dateTo: string) {
     salesQuery = salesQuery.lte("fecha_dia", dateTo)
   }
 
+  if (restaurantId) {
+    salesQuery = salesQuery.eq("restaurante_id", restaurantId)
+  }
+
   return salesQuery
 }
 
-export function createVoidedSalesReportQuery(dateFrom: string, dateTo: string) {
+export function createVoidedSalesReportQuery(dateFrom: string, dateTo: string, restaurantId?: string) {
   let salesQuery = supabase
     .from("ventas")
     .select(
@@ -64,6 +68,10 @@ export function createVoidedSalesReportQuery(dateFrom: string, dateTo: string) {
 
   if (dateTo) {
     salesQuery = salesQuery.lte("fecha_dia", dateTo)
+  }
+
+  if (restaurantId) {
+    salesQuery = salesQuery.eq("restaurante_id", restaurantId)
   }
 
   return salesQuery

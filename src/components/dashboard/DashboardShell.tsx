@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgeCheck,
   BarChart3,
+  BellRing,
   Boxes,
   CalendarDays,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
   ReceiptText,
   Settings2,
   ShieldCheck,
+  Sparkles,
   ShoppingCart,
   UserRound
 } from "lucide-react"
@@ -57,6 +59,7 @@ export function DashboardShell() {
     hasItems: false
   })
   const [cartOpenSignal, setCartOpenSignal] = useState(0)
+  const [subscriptionNoticeDismissed, setSubscriptionNoticeDismissed] = useState(false)
 
   const modules = useMemo(() => (canAccessAdmin ? superAdminModules : operatorModules), [canAccessAdmin])
 
@@ -104,6 +107,31 @@ export function DashboardShell() {
       }).format(new Date()),
     []
   )
+
+  const subscriptionNotice = useMemo(() => {
+    if (canAccessAdmin || subscriptionNoticeDismissed || !profile?.restaurante) return null
+
+    const restaurant = profile.restaurante
+
+    if (restaurant.nivel_suscripcion === "Gratis") {
+      return {
+        title: "Cuadre puede darte mas alcance",
+        description:
+          "Tu emprendimiento esta en el plan Gratis. Con un plan pago puedes ampliar reportes, reducir limites y trabajar con mas herramientas de control.",
+        icon: Sparkles
+      }
+    }
+
+    const daysUntilPayment = getMonthlyPaymentDaysRemaining(restaurant.fecha_suscripcion)
+
+    if (daysUntilPayment < 0 || daysUntilPayment > 3) return null
+
+    return {
+      title: daysUntilPayment === 0 ? "Pago de suscripcion para hoy" : `Quedan ${daysUntilPayment} dias para el pago`,
+      description: `${restaurant.nombre} esta en el plan ${restaurant.nivel_suscripcion}. Recuerda mantener la suscripcion al dia para conservar el acceso operativo.`,
+      icon: BellRing
+    }
+  }, [canAccessAdmin, profile?.restaurante, subscriptionNoticeDismissed])
 
   const activeContent = useMemo(() => {
     if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
@@ -327,6 +355,61 @@ export function DashboardShell() {
           )
         })}
       </nav>
+
+      {subscriptionNotice && (
+        <SubscriptionReminder notice={subscriptionNotice} onClose={() => setSubscriptionNoticeDismissed(true)} />
+      )}
     </main>
   )
+}
+
+function SubscriptionReminder({
+  notice,
+  onClose
+}: {
+  notice: { title: string; description: string; icon: typeof Sparkles }
+  onClose: () => void
+}) {
+  const Icon = notice.icon
+
+  return (
+    <div className="modal-backdrop subscription-reminder-backdrop" role="presentation">
+      <section className="modal-panel subscription-reminder" role="dialog" aria-modal="true">
+        <span className="subscription-reminder-icon" aria-hidden="true">
+          <Icon size={22} />
+        </span>
+        <div>
+          <h2>{notice.title}</h2>
+          <p>{notice.description}</p>
+        </div>
+        <button className="button primary" type="button" onClick={onClose}>
+          Entendido
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function getMonthlyPaymentDaysRemaining(subscriptionDate: string) {
+  const [, , rawDay] = subscriptionDate.split("-")
+  const subscriptionDay = Number(rawDay)
+
+  if (!Number.isFinite(subscriptionDay) || subscriptionDay <= 0) return -1
+
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+  const todayStart = new Date(currentYear, currentMonth, today.getDate())
+  const dueDay = Math.min(subscriptionDay, new Date(currentYear, currentMonth + 1, 0).getDate())
+  let dueDate = new Date(currentYear, currentMonth, dueDay)
+
+  if (dueDate < todayStart) {
+    const nextMonth = currentMonth + 1
+    const nextDueDay = Math.min(subscriptionDay, new Date(currentYear, nextMonth + 1, 0).getDate())
+    dueDate = new Date(currentYear, nextMonth, nextDueDay)
+  }
+
+  const differenceMs = dueDate.getTime() - todayStart.getTime()
+
+  return Math.ceil(differenceMs / 86_400_000)
 }

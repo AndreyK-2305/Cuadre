@@ -2,6 +2,15 @@ export type UserRole = "SuperAdministrador" | "Administrador"
 
 export type SubscriptionLevel = "Gratis" | "Basico" | "Completo" | "Emprendedor"
 
+export type SubscriptionPlan = {
+  nivel: SubscriptionLevel
+  nombre: string
+  precio: number
+  updated_at: string
+}
+
+export type SubscriptionPlanPayload = Pick<SubscriptionPlan, "nombre" | "precio">
+
 export type Restaurant = {
   id: string
   nombre: string

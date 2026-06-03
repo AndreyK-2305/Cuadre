@@ -1,5 +1,13 @@
 import { supabase } from "@/lib/supabase/client"
-import type { Restaurant, RestaurantCreatePayload, RestaurantWritePayload, UserProfile } from "@/types/app"
+import type {
+  Restaurant,
+  RestaurantCreatePayload,
+  RestaurantWritePayload,
+  SubscriptionLevel,
+  SubscriptionPlan,
+  SubscriptionPlanPayload,
+  UserProfile
+} from "@/types/app"
 
 type DataResponse<T> = {
   data: T | null
@@ -38,6 +46,33 @@ export async function fetchCurrentUserProfile(): Promise<DataResponse<UserProfil
 
 export function fetchRestaurants() {
   return supabase.from("restaurantes").select("*").order("created_at", { ascending: false })
+}
+
+export const defaultSubscriptionPlans: SubscriptionPlan[] = [
+  { nivel: "Gratis", nombre: "Gratis", precio: 0, updated_at: "" },
+  { nivel: "Basico", nombre: "Basico", precio: 19000, updated_at: "" },
+  { nivel: "Completo", nombre: "Completo", precio: 29000, updated_at: "" },
+  { nivel: "Emprendedor", nombre: "Emprendedor", precio: 0, updated_at: "" }
+]
+
+export async function fetchSubscriptionPlans(): Promise<DataResponse<SubscriptionPlan[]>> {
+  const { data, error } = await supabase.from("planes_suscripcion").select("*").order("orden", { ascending: true })
+
+  if (error) {
+    return {
+      data: defaultSubscriptionPlans,
+      error: { message: error.message }
+    }
+  }
+
+  return {
+    data: data && data.length > 0 ? data as SubscriptionPlan[] : defaultSubscriptionPlans,
+    error: null
+  }
+}
+
+export function updateSubscriptionPlan(nivel: SubscriptionLevel, payload: SubscriptionPlanPayload) {
+  return supabase.from("planes_suscripcion").update(payload).eq("nivel", nivel).select("*").single()
 }
 
 export async function createRestaurant(payload: RestaurantCreatePayload): Promise<DataResponse<Restaurant>> {
@@ -83,6 +118,19 @@ export async function updateRestaurant(id: string, payload: RestaurantWritePaylo
   }
 
   return response
+}
+
+export async function updateRestaurantActiveState(id: string, activo: boolean) {
+  return supabase.from("restaurantes").update({ activo }).eq("id", id).select("*").single()
+}
+
+export async function deleteRestaurant(id: string): Promise<DataResponse<null>> {
+  const { error } = await supabase.from("restaurantes").delete().eq("id", id)
+
+  return {
+    data: null,
+    error: error ? { message: error.message } : null
+  }
 }
 
 export async function changeRestaurantAdminPassword(restaurantId: string, password: string): Promise<DataResponse<null>> {
