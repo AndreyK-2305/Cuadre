@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Building2, Check, Edit3, KeyRound, Plus, RotateCcw, ShieldCheck } from "lucide-react"
+import { LoginForm } from "@/components/auth/LoginForm"
 import { useDashboardSession } from "@/components/dashboard/useDashboardSession"
 import {
   changeRestaurantAdminPassword,
@@ -33,7 +34,10 @@ const emptyForm: RestaurantForm = {
 const subscriptionLevels: SubscriptionLevel[] = ["Gratis", "Basico", "Completo", "Emprendedor"]
 
 export function AdminShell() {
-  const { canAccessAdmin, handleSignOut, isSigningOut, loading, profileError } = useDashboardSession()
+  const { canAccessAdmin, handleSignOut, isAuthenticated, isSigningOut, loading, profileError } = useDashboardSession({
+    allowUnauthenticated: true,
+    loginPath: "/admin"
+  })
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [form, setForm] = useState<RestaurantForm>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -192,6 +196,10 @@ export function AdminShell() {
     return <main className="loading-screen">Cargando panel administrador...</main>
   }
 
+  if (!isAuthenticated) {
+    return <LoginForm purpose="admin" />
+  }
+
   if (profileError) {
     return <main className="loading-screen">No se pudo cargar el perfil: {profileError}</main>
   }
@@ -220,7 +228,7 @@ export function AdminShell() {
         <div className="actions-row">
           <a className="button subtle" href="/dashboard">
             <ArrowLeft size={17} aria-hidden="true" />
-            Dashboard
+            Reportes
           </a>
           <button className="button primary" type="button" onClick={handleSignOut} disabled={isSigningOut}>
             {isSigningOut ? "Cerrando..." : "Cerrar sesion"}

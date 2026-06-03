@@ -1592,6 +1592,42 @@ input:focus-visible,
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
 }
 
+.sidebar-admin-link {
+  width: 100%;
+  justify-content: center;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: #fffaf0;
+  color: #123632 !important;
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.14);
+}
+
+.sidebar-admin-link:hover:not(:disabled) {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: #fffbeb;
+  color: #0f2f2e !important;
+}
+
+.admin-dashboard-cta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.admin-dashboard-cta svg {
+  color: var(--dashboard-accent);
+}
+
+.admin-dashboard-cta h2 {
+  margin: 0;
+}
+
+.admin-dashboard-cta p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
 .sales-command-compact {
   display: block;
   padding: 0;
@@ -1759,6 +1795,10 @@ input:focus-visible,
     backdrop-filter: blur(20px);
   }
 
+  .mobile-tabbar.admin-mobile-tabbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .mobile-tabbar-item {
     min-width: 0;
     border: 0;
@@ -1840,6 +1880,15 @@ input:focus-visible,
   .checkout-card {
     max-height: min(84svh, 720px);
     overflow: auto;
+  }
+
+  .admin-dashboard-cta {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .admin-dashboard-cta .button {
+    width: 100%;
   }
 }
 

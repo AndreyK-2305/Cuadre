@@ -24,10 +24,11 @@ import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense, Product, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
+  isGlobal?: boolean
   refreshSignal: number
 }
 
-export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
+export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModuleProps) {
   const today = formatDateKey()
   const lastSevenDays = getDateDaysAgo(6)
   const currentMonth = getCurrentMonthPrefix()
@@ -236,7 +237,11 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       <div className="module-title">
         <div>
           <h2>Resumen del negocio</h2>
-          <p>Ventas, egresos, resultado neto e inventario actual.</p>
+          <p>
+            {isGlobal
+              ? "Ventas, egresos, resultado neto e inventario de todos los emprendimientos."
+              : "Ventas, egresos, resultado neto e inventario actual."}
+          </p>
         </div>
       </div>
 
@@ -247,8 +252,12 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
         <div className="filter-title">
           <Filter size={18} />
           <div>
-            <h2>Filtro de ventas</h2>
-            <p>Consulta ventas y egresos por dia, semana, mes o historial completo.</p>
+            <h2>{isGlobal ? "Filtro global" : "Filtro de ventas"}</h2>
+            <p>
+              {isGlobal
+                ? "Consulta la operacion consolidada por dia, semana, mes o historial completo."
+                : "Consulta ventas y egresos por dia, semana, mes o historial completo."}
+            </p>
           </div>
         </div>
 

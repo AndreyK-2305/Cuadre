@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   BadgeCheck,
   BarChart3,
@@ -9,6 +9,7 @@ import {
   ChevronDown,
   LogOut,
   ReceiptText,
+  Settings2,
   ShieldCheck,
   ShoppingCart,
   UserRound
@@ -21,13 +22,18 @@ import { ExpensesModule } from "./ExpensesModule"
 import { useDashboardSession } from "./useDashboardSession"
 import type { MobileCartState } from "@/types/app"
 
-type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes"
+type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes" | "admin"
 
-const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+const operatorModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "ventas", label: "Ventas", icon: ShoppingCart },
   { id: "inventario", label: "Inventario", icon: Boxes },
   { id: "egresos", label: "Egresos", icon: ReceiptText },
   { id: "reportes", label: "Reportes", icon: BarChart3 }
+]
+
+const superAdminModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+  { id: "reportes", label: "Reportes", icon: BarChart3 },
+  { id: "admin", label: "Admin", icon: Settings2 }
 ]
 
 export function DashboardShell() {
@@ -52,6 +58,16 @@ export function DashboardShell() {
   })
   const [cartOpenSignal, setCartOpenSignal] = useState(0)
 
+  const modules = useMemo(() => (canAccessAdmin ? superAdminModules : operatorModules), [canAccessAdmin])
+
+  useEffect(() => {
+    const hasActiveModule = modules.some((module) => module.id === activeModule)
+
+    if (!hasActiveModule) {
+      setActiveModule(modules[0].id)
+    }
+  }, [activeModule, modules])
+
   const handleDataChanged = useCallback(() => {
     setRefreshSignal((current) => current + 1)
   }, [])
@@ -63,15 +79,19 @@ export function DashboardShell() {
 
   const activeModuleConfig = useMemo(
     () => modules.find((module) => module.id === activeModule) ?? modules[0],
-    [activeModule]
+    [activeModule, modules]
   )
 
   const activeDescription = useMemo(() => {
+    if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
+      return "Lectura global de ventas, caja y operaciones de los emprendimientos."
+    }
+    if (activeModule === "admin") return "Configuracion comercial, accesos y emprendimientos suscritos."
     if (activeModule === "inventario") return "Existencias, ajustes y productos activos en una vista operativa."
     if (activeModule === "egresos") return "Gastos diarios listos para descontar del resultado de caja."
-    if (activeModule === "reportes") return "Ventas, caja y movimientos listos para consulta rapida."
+    if (activeModule === "reportes") return canAccessAdmin ? "Lectura global de ventas, caja y operaciones de los emprendimientos." : "Ventas, caja y movimientos listos para consulta rapida."
     return "Cobro rapido con catalogo visible y resumen de caja persistente."
-  }, [activeModule])
+  }, [activeModule, canAccessAdmin, modules])
 
   const ActiveModuleIcon = activeModuleConfig.icon
 
@@ -86,6 +106,10 @@ export function DashboardShell() {
   )
 
   const activeContent = useMemo(() => {
+    if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
+      return <ReportsModule refreshSignal={refreshSignal} isGlobal />
+    }
+
     if (!restaurantId && profile?.rol !== "SuperAdministrador") {
       return (
         <section className="panel empty-state">
@@ -94,11 +118,25 @@ export function DashboardShell() {
       )
     }
 
+    if (activeModule === "admin") {
+      return (
+        <section className="panel admin-dashboard-cta">
+          <ShieldCheck size={28} aria-hidden="true" />
+          <div>
+            <h2>Administracion de Cuadre</h2>
+            <p>Gestiona emprendimientos, correos administradores, planes y accesos desde el panel central.</p>
+          </div>
+          <a className="button primary" href="/admin">
+            Abrir panel administrador
+          </a>
+        </section>
+      )
+    }
     if (activeModule === "inventario") return <InventoryModule restaurantId={restaurantId} onChanged={handleDataChanged} />
     if (activeModule === "egresos") {
       return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
     }
-    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} />
+    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} />
     return (
       <SalesModule
         restaurantId={restaurantId}
@@ -108,7 +146,7 @@ export function DashboardShell() {
         onSaleCompleted={handleDataChanged}
       />
     )
-  }, [activeModule, cartOpenSignal, handleDataChanged, profile?.rol, refreshSignal, restaurantId])
+  }, [activeModule, canAccessAdmin, cartOpenSignal, handleDataChanged, modules, profile?.rol, refreshSignal, restaurantId])
 
   const openMobileCart = () => {
     setSessionMenuOpen(false)
@@ -258,7 +296,7 @@ export function DashboardShell() {
           <div className="topbar-actions" aria-label="Estado operativo">
             <span className="status-pill">
               <BadgeCheck size={16} aria-hidden="true" />
-              Caja lista
+              {canAccessAdmin ? "Vista global" : "Caja lista"}
             </span>
             <span className="date-pill">
               <CalendarDays size={16} aria-hidden="true" />
@@ -270,7 +308,7 @@ export function DashboardShell() {
         {activeContent}
       </section>
 
-      <nav className="mobile-tabbar" aria-label="Modulos principales">
+      <nav className={canAccessAdmin ? "mobile-tabbar admin-mobile-tabbar" : "mobile-tabbar"} aria-label="Modulos principales">
         {modules.map((module) => {
           const Icon = module.icon
           const isActive = activeModule === module.id

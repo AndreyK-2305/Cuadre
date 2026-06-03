@@ -1,14 +1,21 @@
 "use client"
 
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { LogIn, ShieldCheck } from "lucide-react"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
+import { fetchCurrentUserProfile } from "@/lib/data/restaurants"
 
 type PasswordMode = "unknown" | "signin" | "setup"
+type LoginPurpose = "operator" | "admin"
 
-export function LoginForm() {
+type LoginFormProps = {
+  purpose?: LoginPurpose
+}
+
+export function LoginForm({ purpose = "operator" }: LoginFormProps) {
   const router = useRouter()
+  const isAdminLogin = purpose === "admin"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [passwordMode, setPasswordMode] = useState<PasswordMode>("unknown")
@@ -16,6 +23,38 @@ export function LoginForm() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+
+  const routeAuthenticatedUser = useCallback(async () => {
+    const { data: profile, error: profileError } = await fetchCurrentUserProfile()
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut()
+      setCheckingSession(false)
+      setError(profileError?.message ?? "No se pudo validar el perfil de acceso.")
+      return
+    }
+
+    if (isAdminLogin) {
+      if (profile.rol !== "SuperAdministrador") {
+        await supabase.auth.signOut()
+        setCheckingSession(false)
+        setError("Este acceso es exclusivo para SuperAdministrador.")
+        return
+      }
+
+      router.replace("/admin")
+      return
+    }
+
+    if (profile.rol === "SuperAdministrador") {
+      await supabase.auth.signOut()
+      setCheckingSession(false)
+      setError("El acceso administrativo se realiza desde /admin.")
+      return
+    }
+
+    router.replace("/dashboard")
+  }, [isAdminLogin, router])
 
   useEffect(() => {
     let mounted = true
@@ -30,7 +69,7 @@ export function LoginForm() {
       if (!mounted) return
 
       if (data.session) {
-        router.replace("/dashboard")
+        await routeAuthenticatedUser()
       } else {
         setCheckingSession(false)
       }
@@ -41,7 +80,7 @@ export function LoginForm() {
     return () => {
       mounted = false
     }
-  }, [router])
+  }, [routeAuthenticatedUser, router])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -94,7 +133,7 @@ export function LoginForm() {
       return
     }
 
-    router.replace("/dashboard")
+    await routeAuthenticatedUser()
   }
 
   function handleEmailChange(value: string) {
@@ -132,9 +171,13 @@ export function LoginForm() {
         <div className="login-brand">
           <img src="/img/logo.png" alt="Cuadre" />
           <div>
-            <span className="login-eyebrow">Panel operativo</span>
+            <span className="login-eyebrow">{isAdminLogin ? "Panel administrador" : "Panel operativo"}</span>
             <h1>Cuadre</h1>
-            <p>Control de inventario, ventas y reportes para pequenos negocios.</p>
+            <p>
+              {isAdminLogin
+                ? "Gestion central de emprendimientos, planes y reportes globales."
+                : "Control de inventario, ventas y reportes para pequenos negocios."}
+            </p>
           </div>
         </div>
 
@@ -146,7 +189,11 @@ export function LoginForm() {
 
         <form className="login-card" onSubmit={handleSubmit}>
           <div className="login-card-header login-card-note">
-            <p>Usa el correo autorizado para abrir el panel de ventas y operacion.</p>
+            <p>
+              {isAdminLogin
+                ? "Usa el correo SuperAdministrador para gestionar Cuadre."
+                : "Usa el correo autorizado para abrir el panel de ventas y operacion."}
+            </p>
           </div>
 
           <div className="field">
