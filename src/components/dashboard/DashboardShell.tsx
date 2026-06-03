@@ -1,19 +1,31 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import { BadgeCheck, BarChart3, Boxes, CalendarDays, ChevronDown, LogOut, ShoppingCart, UserRound } from "lucide-react"
+import {
+  BadgeCheck,
+  BarChart3,
+  Boxes,
+  CalendarDays,
+  ChevronDown,
+  LogOut,
+  ReceiptText,
+  ShoppingCart,
+  UserRound
+} from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { SalesModule } from "./SalesModule"
 import { InventoryModule } from "./InventoryModule"
 import { ReportsModule } from "./ReportsModule"
+import { ExpensesModule } from "./ExpensesModule"
 import { useDashboardSession } from "./useDashboardSession"
 import type { MobileCartState } from "@/types/app"
 
-type ActiveModule = "ventas" | "inventario" | "reportes"
+type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes"
 
 const modules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "ventas", label: "Ventas", icon: ShoppingCart },
   { id: "inventario", label: "Inventario", icon: Boxes },
+  { id: "egresos", label: "Egresos", icon: ReceiptText },
   { id: "reportes", label: "Reportes", icon: BarChart3 }
 ]
 
@@ -45,6 +57,7 @@ export function DashboardShell() {
 
   const activeDescription = useMemo(() => {
     if (activeModule === "inventario") return "Existencias, ajustes y productos activos en una vista operativa."
+    if (activeModule === "egresos") return "Gastos diarios listos para descontar del resultado de caja."
     if (activeModule === "reportes") return "Ventas, caja y movimientos listos para consulta rapida."
     return "Cobro rapido con catalogo visible y resumen de caja persistente."
   }, [activeModule])
@@ -63,6 +76,9 @@ export function DashboardShell() {
 
   const activeContent = useMemo(() => {
     if (activeModule === "inventario") return <InventoryModule onChanged={handleDataChanged} />
+    if (activeModule === "egresos") {
+      return <ExpensesModule refreshSignal={refreshSignal} onChanged={handleDataChanged} />
+    }
     if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} />
     return (
       <SalesModule

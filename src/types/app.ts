@@ -27,6 +27,23 @@ export type InventoryMovementPayload = {
   nota: string
 }
 
+export type Expense = {
+  id: string
+  user_id: string
+  descripcion: string
+  valor: number
+  fecha: string
+  fecha_dia: string
+  created_at: string
+  updated_at: string
+}
+
+export type ExpenseWritePayload = {
+  descripcion: string
+  valor: number
+  fecha_dia: string
+}
+
 export type SaleItem = {
   id: string
   venta_id: string

@@ -1,5 +1,5 @@
 import { formatCurrency } from "@/lib/format"
-import type { Product, Sale } from "@/types/app"
+import type { Expense, Product, Sale } from "@/types/app"
 
 export type Metric = {
   label: string
@@ -9,19 +9,26 @@ export type Metric = {
 
 export type ReportPreset = "today" | "week" | "month" | "all" | "custom"
 
-export function buildReportMetrics(sales: Sale[], dateFrom: string, dateTo: string): Metric[] {
-  const total = sales.reduce((sum, sale) => sum + sale.total, 0)
+export function buildReportMetrics(
+  sales: Sale[],
+  expenses: Expense[],
+  dateFrom: string,
+  dateTo: string
+): Metric[] {
+  const salesTotal = sales.reduce((sum, sale) => sum + sale.total, 0)
+  const expensesTotal = expenses.reduce((sum, expense) => sum + expense.valor, 0)
+  const netResult = salesTotal - expensesTotal
   const units = sales.reduce(
     (count, sale) =>
       count + (sale.detalle_ventas ?? []).reduce((saleCount, detail) => saleCount + detail.cantidad, 0),
     0
   )
-  const average = sales.length > 0 ? Math.round(total / sales.length) : 0
 
   return [
-    { label: "Total filtrado", value: formatCurrency(total), caption: `${sales.length} ventas` },
+    { label: "Resultado neto", value: formatCurrency(netResult), caption: "ventas menos egresos" },
+    { label: "Ventas filtradas", value: formatCurrency(salesTotal), caption: `${sales.length} ventas` },
+    { label: "Egresos filtrados", value: formatCurrency(expensesTotal), caption: `${expenses.length} registros` },
     { label: "Productos vendidos", value: String(units), caption: "unidades en detalle" },
-    { label: "Promedio por venta", value: formatCurrency(average), caption: "ticket promedio" },
     { label: "Rango", value: getRangeLabel(dateFrom, dateTo), caption: "consulta activa" }
   ]
 }

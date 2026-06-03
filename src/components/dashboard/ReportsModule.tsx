@@ -17,9 +17,10 @@ import {
   getTopProducts,
   type ReportPreset
 } from "@/lib/dashboard/reports"
+import { createExpensesReportQuery } from "@/lib/data/expenses"
 import { fetchProducts } from "@/lib/data/products"
 import { createSalesReportQuery } from "@/lib/data/sales"
-import type { Product, Sale, SaleItem } from "@/types/app"
+import type { Expense, Product, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
   refreshSignal: number
@@ -30,6 +31,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const lastSevenDays = getDateDaysAgo(6)
   const currentMonth = getCurrentMonthPrefix()
   const [sales, setSales] = useState<Sale[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -43,23 +45,34 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
       setSales([])
+      setExpenses([])
       setLoading(false)
       setError("La fecha inicial no puede ser mayor que la fecha final.")
       return
     }
 
     const salesQuery = createSalesReportQuery(dateFrom, dateTo)
+    const expensesQuery = createExpensesReportQuery(dateFrom, dateTo)
 
-    const [{ data: salesData, error: salesError }, { data: productData, error: productError }] =
-      await Promise.all([salesQuery, fetchProducts()])
+    const [
+      { data: salesData, error: salesError },
+      { data: expensesData, error: expensesError },
+      { data: productData, error: productError }
+    ] = await Promise.all([salesQuery, expensesQuery, fetchProducts()])
 
-    if (salesError || productError) {
-      setError(salesError?.message ?? productError?.message ?? "No se pudieron cargar reportes.")
+    if (salesError || expensesError || productError) {
+      setError(
+        salesError?.message ??
+          expensesError?.message ??
+          productError?.message ??
+          "No se pudieron cargar reportes."
+      )
       setLoading(false)
       return
     }
 
     setSales((salesData ?? []) as Sale[])
+    setExpenses((expensesData ?? []) as Expense[])
     setProducts((productData ?? []) as Product[])
     setLoading(false)
   }, [dateFrom, dateTo])
@@ -68,7 +81,10 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     void loadReports()
   }, [loadReports, refreshSignal])
 
-  const metrics = useMemo(() => buildReportMetrics(sales, dateFrom, dateTo), [dateFrom, dateTo, sales])
+  const metrics = useMemo(
+    () => buildReportMetrics(sales, expenses, dateFrom, dateTo),
+    [dateFrom, dateTo, expenses, sales]
+  )
   const topProducts = useMemo(() => getTopProducts(sales), [sales])
   const { inventoryItems, saleProducts, inventoryTotal, suspendedProducts } = useMemo(
     () => getInventorySnapshot(products),
@@ -100,7 +116,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
       <div className="module-title">
         <div>
           <h2>Resumen del negocio</h2>
-          <p>Ventas del dia, semana, mes, historial general e inventario actual.</p>
+          <p>Ventas, egresos, resultado neto e inventario actual.</p>
         </div>
       </div>
 
@@ -111,7 +127,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
           <Filter size={18} />
           <div>
             <h2>Filtro de ventas</h2>
-            <p>Consulta un dia especifico o un rango de fechas.</p>
+            <p>Consulta ventas y egresos por dia, semana, mes o historial completo.</p>
           </div>
         </div>
 
@@ -209,6 +225,28 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                   <SaleDetails details={sale.detalle_ventas ?? []} />
                 </article>
               ))}
+
+              <article className="panel">
+                <div className="section-title">
+                  <h2>Historial de egresos</h2>
+                  <p>Gastos registrados para el mismo filtro de fechas.</p>
+                </div>
+              </article>
+
+              {expenses.length === 0 && <div className="panel empty-state">Aun no hay egresos registrados.</div>}
+
+              {expenses.map((expense) => (
+                <article className="history-row" key={expense.id}>
+                  <div className="history-meta">
+                    <span className="badge off">{formatDateForReport(expense.fecha_dia)}</span>
+                    <span>{formatDateTime(expense.created_at)}</span>
+                  </div>
+                  <div className="total-line">
+                    <strong>{formatCurrency(expense.valor)}</strong>
+                    <span className="muted">{expense.descripcion}</span>
+                  </div>
+                </article>
+              ))}
             </div>
 
             <aside className="history-list">
@@ -241,7 +279,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                 </div>
                 <div className="actions-row">
                   <TrendingUp size={18} />
-                  <span>Total filtrado: {metrics[0]?.value ?? formatCurrency(0)}</span>
+                  <span>Resultado neto: {metrics[0]?.value ?? formatCurrency(0)}</span>
                 </div>
                 <div className="actions-row">
                   <Boxes size={18} />
@@ -249,7 +287,9 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                 </div>
                 <div className="actions-row">
                   <History size={18} />
-                  <span>{sales.length} ventas en historial</span>
+                  <span>
+                    {sales.length} ventas y {expenses.length} egresos
+                  </span>
                 </div>
               </article>
 
@@ -291,4 +331,10 @@ function SaleDetails({ details }: { details: SaleItem[] }) {
       ))}
     </div>
   )
+}
+
+function formatDateForReport(dateKey: string) {
+  const [year, month, day] = dateKey.split("-")
+  if (!year || !month || !day) return dateKey
+  return `${day}/${month}/${year}`
 }

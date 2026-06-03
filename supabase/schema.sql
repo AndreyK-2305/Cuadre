@@ -50,6 +50,17 @@ create table if not exists public.ventas (
   unique (fecha_dia, folio_diario)
 );
 
+create table if not exists public.egresos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete restrict,
+  descripcion text not null,
+  valor integer not null check (valor > 0),
+  fecha timestamptz not null default now(),
+  fecha_dia date not null default ((timezone('America/Bogota', now()))::date),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.detalle_ventas (
   id uuid primary key default gen_random_uuid(),
   venta_id uuid not null references public.ventas(id) on delete cascade,
@@ -77,6 +88,7 @@ create table if not exists public.movimientos_inventario (
 create index if not exists idx_productos_activo on public.productos(activo);
 create index if not exists idx_productos_tipo_item on public.productos(tipo_item);
 create index if not exists idx_ventas_fecha_dia on public.ventas(fecha_dia desc);
+create index if not exists idx_egresos_user_fecha_dia on public.egresos(user_id, fecha_dia desc);
 create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(venta_id);
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 
@@ -93,6 +105,11 @@ $$;
 drop trigger if exists trg_productos_updated_at on public.productos;
 create trigger trg_productos_updated_at
 before update on public.productos
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_egresos_updated_at on public.egresos;
+create trigger trg_egresos_updated_at
+before update on public.egresos
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
@@ -246,6 +263,7 @@ grant execute on function public.registrar_venta(jsonb, integer) to authenticate
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
+alter table public.egresos enable row level security;
 alter table public.detalle_ventas enable row level security;
 alter table public.movimientos_inventario enable row level security;
 
@@ -280,6 +298,31 @@ create policy "Usuarios insertan sus ventas"
 on public.ventas for insert
 to authenticated
 with check (auth.uid() = user_id);
+
+drop policy if exists "Usuarios leen sus egresos" on public.egresos;
+create policy "Usuarios leen sus egresos"
+on public.egresos for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Usuarios insertan sus egresos" on public.egresos;
+create policy "Usuarios insertan sus egresos"
+on public.egresos for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Usuarios actualizan sus egresos" on public.egresos;
+create policy "Usuarios actualizan sus egresos"
+on public.egresos for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Usuarios eliminan sus egresos" on public.egresos;
+create policy "Usuarios eliminan sus egresos"
+on public.egresos for delete
+to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists "Usuarios leen detalle de sus ventas" on public.detalle_ventas;
 create policy "Usuarios leen detalle de sus ventas"
