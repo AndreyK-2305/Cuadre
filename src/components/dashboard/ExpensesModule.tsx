@@ -149,7 +149,7 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
               <input
                 id="expense-value"
                 type="number"
-                min="1"
+                min="0"
                 step="100"
                 value={form.valor}
                 onChange={(event) => updateForm("valor", event.target.value)}
