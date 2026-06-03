@@ -284,21 +284,10 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
 
   return (
     <div className="module">
-      <div className="module-title">
-        <div>
-          <h2>Productos e inventario</h2>
-          <p>Productos para vender separados de insumos, vasos, cucharas y otros inventarios.</p>
-        </div>
-        <button className="button primary" type="button" onClick={openCreateModal}>
-          <Plus size={18} />
-          Agregar
-        </button>
-      </div>
-
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 
-      <section className="panel">
+      <section className="panel inventory-search-panel">
         <div className="field">
           <label htmlFor="buscar-producto">Buscar</label>
           <div className="actions-row">
@@ -312,6 +301,10 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
             />
           </div>
         </div>
+        <button className="button primary" type="button" onClick={openCreateModal}>
+          <Plus size={18} />
+          Agregar
+        </button>
       </section>
 
       {loading && <div className="panel empty-state">Cargando productos e inventario...</div>}

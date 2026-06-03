@@ -26,7 +26,7 @@ export function HomeNav() {
     <div className={`landing-nav-dock ${isPageEndVisible ? "is-page-end-visible" : ""}`}>
       <nav className="landing-nav" aria-label="Navegación principal">
         <Link className="landing-brand" href="/home">
-          <img src="/img/logo.png" alt="Logo de Cuadre" />
+          <img src="/img/cuadreapp.png" alt="Logo de Cuadre" />
           <span>
             <strong>Cuadre</strong>
             <small>Operaciones comerciales</small>

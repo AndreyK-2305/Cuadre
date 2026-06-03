@@ -14,7 +14,7 @@ export type PublicPlan = {
 
 export const defaultPublicPlanName = "Completo"
 
-export const salesWhatsappPhone = "573000000000"
+export const salesWhatsappPhone = "573232523586"
 
 export const publicPlans: PublicPlan[] = [
   {
@@ -25,10 +25,10 @@ export const publicPlans: PublicPlan[] = [
     features: [
       { label: "Hasta 10 productos", included: true },
       { label: "Estado de ventas del día", included: true },
+      { label: "1 usuario", included: true },
       { label: "Descargas PDF", included: false },
       { label: "Historial ampliado", included: false },
-      { label: "Estadísticas avanzadas", included: false },
-      { label: "Incluye anuncios", included: false }
+      { label: "Estadísticas avanzadas", included: false }
     ]
   },
   {
@@ -37,10 +37,10 @@ export const publicPlans: PublicPlan[] = [
     caption: "Para negocios que ya necesitan operar sin límite de productos.",
     features: [
       { label: "Inventario ilimitado", included: true },
-      { label: "Reportes semanales", included: true },
-      { label: "Hasta 2 descargas PDF", included: true },
-      { label: "Sin anuncios", included: true },
-      { label: "Historial superior a 1 semana", included: false },
+      { label: "Hasta 2 usuarios", included: true },
+      { label: "Historial hasta 3 meses", included: true },
+      { label: "Descargas ilimitadas en PDF", included: true },
+      { label: "Exportación en Excel", included: false },
       { label: "Estadísticas avanzadas", included: false }
     ]
   },
@@ -51,11 +51,11 @@ export const publicPlans: PublicPlan[] = [
     featured: true,
     features: [
       { label: "Inventario ilimitado", included: true },
-      { label: "Consulta web hasta 1 mes", included: true },
-      { label: "Descargas PDF ilimitadas", included: true },
-      { label: "Sin anuncios", included: true },
-      { label: "Historial global", included: false },
-      { label: "Estadísticas avanzadas", included: false }
+      { label: "Hasta 5 usuarios", included: true },
+      { label: "Historial global", included: true },
+      { label: "Descargas ilimitadas en PDF y Excel", included: true },
+      { label: "Estadísticas avanzadas", included: true },
+      { label: "Gráficos de productos", included: true }
     ]
   },
   {
@@ -64,12 +64,13 @@ export const publicPlans: PublicPlan[] = [
     caption: "Para negocios que necesitan histórico, gráficos e implementación guiada.",
     features: [
       { label: "Inventario ilimitado", included: true },
+      { label: "Usuarios sin límite", included: true },
       { label: "Historial global", included: true },
-      { label: "Descargas PDF ilimitadas", included: true },
-      { label: "Sin anuncios", included: true },
+      { label: "Descargas ilimitadas en PDF y Excel", included: true },
       { label: "Estadísticas avanzadas", included: true },
       { label: "Gráficos de productos", included: true },
-      { label: "Acompañamiento personalizado", included: true }
+      { label: "Acompañamiento personalizado", included: true },
+      { label: "Ajustes según tu operación", included: true }
     ]
   }
 ]
