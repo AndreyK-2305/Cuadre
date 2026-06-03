@@ -12,6 +12,12 @@ export function voidExpense(id: string, reason: string) {
   })
 }
 
+export function restoreExpense(id: string) {
+  return supabase.rpc("restaurar_egreso", {
+    p_egreso_id: id
+  })
+}
+
 export function createExpensesReportQuery(dateFrom: string, dateTo: string) {
   let expensesQuery = supabase
     .from("egresos")
@@ -19,6 +25,26 @@ export function createExpensesReportQuery(dateFrom: string, dateTo: string) {
     .eq("eliminado", false)
     .order("fecha_dia", { ascending: false })
     .order("created_at", { ascending: false })
+    .limit(1000)
+
+  if (dateFrom) {
+    expensesQuery = expensesQuery.gte("fecha_dia", dateFrom)
+  }
+
+  if (dateTo) {
+    expensesQuery = expensesQuery.lte("fecha_dia", dateTo)
+  }
+
+  return expensesQuery
+}
+
+export function createVoidedExpensesReportQuery(dateFrom: string, dateTo: string) {
+  let expensesQuery = supabase
+    .from("egresos")
+    .select("*")
+    .eq("eliminado", true)
+    .order("eliminado_at", { ascending: false })
+    .order("fecha_dia", { ascending: false })
     .limit(1000)
 
   if (dateFrom) {

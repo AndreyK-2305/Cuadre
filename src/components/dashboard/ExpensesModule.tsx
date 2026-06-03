@@ -1,8 +1,8 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
-import { CalendarDays, Filter, Plus, Trash2 } from "lucide-react"
-import { formatCurrency, formatDateKey, formatDateTime, getCurrentMonthPrefix, getDateDaysAgo } from "@/lib/format"
+import { CalendarDays, Plus, Trash2 } from "lucide-react"
+import { formatCurrency, formatDateKey, formatDateTime } from "@/lib/format"
 import {
   buildExpensePayload,
   createEmptyExpenseForm,
@@ -10,7 +10,6 @@ import {
   validateExpensePayload,
   type ExpenseForm
 } from "@/lib/dashboard/expenses"
-import { getPresetDateRange, type ReportPreset } from "@/lib/dashboard/reports"
 import { createExpense, createExpensesReportQuery, voidExpense } from "@/lib/data/expenses"
 import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense } from "@/types/app"
@@ -22,8 +21,6 @@ type ExpensesModuleProps = {
 
 export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps) {
   const today = formatDateKey()
-  const lastSevenDays = getDateDaysAgo(6)
-  const currentMonth = getCurrentMonthPrefix()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [form, setForm] = useState<ExpenseForm>(() => createEmptyExpenseForm(today))
   const [loading, setLoading] = useState(true)
@@ -32,22 +29,12 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
   const [savingVoid, setSavingVoid] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
-  const [dateFrom, setDateFrom] = useState(today)
-  const [dateTo, setDateTo] = useState(today)
-  const [activePreset, setActivePreset] = useState<ReportPreset>("today")
 
   const loadExpenses = useCallback(async () => {
     setLoading(true)
     setError("")
 
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      setExpenses([])
-      setLoading(false)
-      setError("La fecha inicial no puede ser mayor que la fecha final.")
-      return
-    }
-
-    const { data, error: loadError } = await createExpensesReportQuery(dateFrom, dateTo)
+    const { data, error: loadError } = await createExpensesReportQuery(today, today)
 
     if (loadError) {
       setError(loadError.message)
@@ -57,7 +44,7 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
 
     setExpenses((data ?? []) as Expense[])
     setLoading(false)
-  }, [dateFrom, dateTo])
+  }, [today])
 
   useEffect(() => {
     void loadExpenses()
@@ -67,26 +54,6 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
 
   function updateForm<K extends keyof ExpenseForm>(key: K, value: ExpenseForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
-  }
-
-  function setPreset(preset: ReportPreset) {
-    setActivePreset(preset)
-
-    const nextRange = getPresetDateRange(preset, { today, lastSevenDays, currentMonth })
-    if (nextRange) {
-      setDateFrom(nextRange.dateFrom)
-      setDateTo(nextRange.dateTo)
-    }
-  }
-
-  function handleDateFromChange(value: string) {
-    setActivePreset("custom")
-    setDateFrom(value)
-  }
-
-  function handleDateToChange(value: string) {
-    setActivePreset("custom")
-    setDateTo(value)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -113,11 +80,11 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
       return
     }
 
-    if (isDateInActiveRange(payload.fecha_dia, dateFrom, dateTo)) {
+    if (payload.fecha_dia === today) {
       setExpenses((current) => [data as Expense, ...current])
     }
 
-    setForm({ ...createEmptyExpenseForm(payload.fecha_dia), fecha_dia: payload.fecha_dia })
+    setForm(createEmptyExpenseForm(today))
     setNotice(`Egreso registrado por ${formatCurrency(payload.valor)}.`)
     onChanged()
   }
@@ -192,12 +159,12 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
             </div>
 
             <div className="field">
-              <label htmlFor="expense-date">Fecha</label>
+              <label htmlFor="expense-date">Fecha actual</label>
               <input
                 id="expense-date"
                 type="date"
                 value={form.fecha_dia}
-                onChange={(event) => updateForm("fecha_dia", event.target.value)}
+                readOnly
                 required
               />
             </div>
@@ -212,57 +179,12 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
         <section className="metric">
           <span>Total de egresos</span>
           <strong>{formatCurrency(totalExpenses)}</strong>
-          <small>{expenses.length} registros en el filtro activo</small>
+          <small>{expenses.length} registros de hoy</small>
           <div className="actions-row">
             <CalendarDays size={18} aria-hidden="true" />
-            <span>{activePreset === "today" ? "Hoy" : "Rango seleccionado"}</span>
+            <span>Hoy: {formatDateForExpense(today)}</span>
           </div>
         </section>
-      </section>
-
-      <section className="panel report-filters">
-        <div className="filter-title">
-          <Filter size={18} aria-hidden="true" />
-          <div>
-            <h2>Filtro de egresos</h2>
-            <p>Consulta gastos por dia, semana, mes o historial completo.</p>
-          </div>
-        </div>
-
-        <div className="filter-grid">
-          <div className="field">
-            <label htmlFor="expenses-date-from">Desde</label>
-            <input
-              id="expenses-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => handleDateFromChange(event.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="expenses-date-to">Hasta</label>
-            <input
-              id="expenses-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => handleDateToChange(event.target.value)}
-            />
-          </div>
-
-          <div className="actions-row filter-actions">
-            {(["today", "week", "month", "all"] as ReportPreset[]).map((preset) => (
-              <button
-                className={`button subtle ${activePreset === preset ? "active" : ""}`}
-                key={preset}
-                type="button"
-                onClick={() => setPreset(preset)}
-              >
-                {getPresetLabel(preset)}
-              </button>
-            ))}
-          </div>
-        </div>
       </section>
 
       {loading && <div className="panel empty-state">Cargando egresos...</div>}
@@ -272,11 +194,11 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
           <article className="panel">
             <div className="section-title">
               <h2>Historial de egresos</h2>
-              <p>Hasta 1000 gastos para el filtro seleccionado.</p>
+              <p>Gastos activos registrados durante la fecha actual.</p>
             </div>
           </article>
 
-          {expenses.length === 0 && <div className="panel empty-state">Aun no hay egresos registrados.</div>}
+          {expenses.length === 0 && <div className="panel empty-state">Aun no hay egresos registrados hoy.</div>}
 
           {expenses.map((expense) => (
             <article className="history-row" key={expense.id}>
@@ -316,22 +238,8 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
   )
 }
 
-function getPresetLabel(preset: ReportPreset) {
-  if (preset === "today") return "Hoy"
-  if (preset === "week") return "7 dias"
-  if (preset === "month") return "Mes"
-  if (preset === "all") return "Todo"
-  return "Personalizado"
-}
-
 function formatDateForExpense(dateKey: string) {
   const [year, month, day] = dateKey.split("-")
   if (!year || !month || !day) return dateKey
   return `${day}/${month}/${year}`
-}
-
-function isDateInActiveRange(dateKey: string, dateFrom: string, dateTo: string) {
-  if (dateFrom && dateKey < dateFrom) return false
-  if (dateTo && dateKey > dateTo) return false
-  return true
 }

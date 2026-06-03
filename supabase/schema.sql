@@ -402,6 +402,64 @@ $$;
 
 grant execute on function public.anular_egreso(uuid, text) to authenticated;
 
+create or replace function public.restaurar_venta(
+  p_venta_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then
+    raise exception 'Debes iniciar sesion para restaurar ventas';
+  end if;
+
+  update public.ventas
+  set eliminado = false
+  where id = p_venta_id
+    and user_id = v_user
+    and eliminado = true;
+
+  if not found then
+    raise exception 'No se encontro una venta anulada para restaurar';
+  end if;
+end;
+$$;
+
+grant execute on function public.restaurar_venta(uuid) to authenticated;
+
+create or replace function public.restaurar_egreso(
+  p_egreso_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then
+    raise exception 'Debes iniciar sesion para restaurar egresos';
+  end if;
+
+  update public.egresos
+  set eliminado = false
+  where id = p_egreso_id
+    and user_id = v_user
+    and eliminado = true;
+
+  if not found then
+    raise exception 'No se encontro un egreso anulado para restaurar';
+  end if;
+end;
+$$;
+
+grant execute on function public.restaurar_egreso(uuid) to authenticated;
+
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Boxes, CalendarDays, Filter, History, Trash2, TrendingUp } from "lucide-react"
+import { Boxes, CalendarDays, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
 import {
   formatCurrency,
   formatDateKey,
@@ -17,9 +17,9 @@ import {
   getTopProducts,
   type ReportPreset
 } from "@/lib/dashboard/reports"
-import { createExpensesReportQuery, voidExpense } from "@/lib/data/expenses"
+import { createExpensesReportQuery, createVoidedExpensesReportQuery, restoreExpense, voidExpense } from "@/lib/data/expenses"
 import { fetchProducts } from "@/lib/data/products"
-import { createSalesReportQuery, voidSale } from "@/lib/data/sales"
+import { createSalesReportQuery, createVoidedSalesReportQuery, restoreSale, voidSale } from "@/lib/data/sales"
 import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
 import type { Expense, Product, Sale, SaleItem } from "@/types/app"
 
@@ -33,6 +33,8 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const currentMonth = getCurrentMonthPrefix()
   const [sales, setSales] = useState<Sale[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [voidedSales, setVoidedSales] = useState<Sale[]>([])
+  const [voidedExpenses, setVoidedExpenses] = useState<Expense[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -40,6 +42,7 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
   const [voidingSale, setVoidingSale] = useState<Sale | null>(null)
   const [voidingExpense, setVoidingExpense] = useState<Expense | null>(null)
   const [savingVoid, setSavingVoid] = useState(false)
+  const [restoringId, setRestoringId] = useState("")
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
   const [activePreset, setActivePreset] = useState<ReportPreset>("today")
@@ -51,6 +54,8 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     if (dateFrom && dateTo && dateFrom > dateTo) {
       setSales([])
       setExpenses([])
+      setVoidedSales([])
+      setVoidedExpenses([])
       setLoading(false)
       setError("La fecha inicial no puede ser mayor que la fecha final.")
       return
@@ -58,17 +63,23 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
 
     const salesQuery = createSalesReportQuery(dateFrom, dateTo)
     const expensesQuery = createExpensesReportQuery(dateFrom, dateTo)
+    const voidedSalesQuery = createVoidedSalesReportQuery(dateFrom, dateTo)
+    const voidedExpensesQuery = createVoidedExpensesReportQuery(dateFrom, dateTo)
 
     const [
       { data: salesData, error: salesError },
       { data: expensesData, error: expensesError },
+      { data: voidedSalesData, error: voidedSalesError },
+      { data: voidedExpensesData, error: voidedExpensesError },
       { data: productData, error: productError }
-    ] = await Promise.all([salesQuery, expensesQuery, fetchProducts()])
+    ] = await Promise.all([salesQuery, expensesQuery, voidedSalesQuery, voidedExpensesQuery, fetchProducts()])
 
-    if (salesError || expensesError || productError) {
+    if (salesError || expensesError || voidedSalesError || voidedExpensesError || productError) {
       setError(
         salesError?.message ??
           expensesError?.message ??
+          voidedSalesError?.message ??
+          voidedExpensesError?.message ??
           productError?.message ??
           "No se pudieron cargar reportes."
       )
@@ -78,6 +89,8 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
 
     setSales((salesData ?? []) as Sale[])
     setExpenses((expensesData ?? []) as Expense[])
+    setVoidedSales((voidedSalesData ?? []) as Sale[])
+    setVoidedExpenses((voidedExpensesData ?? []) as Expense[])
     setProducts((productData ?? []) as Product[])
     setLoading(false)
   }, [dateFrom, dateTo])
@@ -135,6 +148,15 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     }
 
     setSales((current) => current.filter((item) => item.id !== sale.id))
+    setVoidedSales((current) => [
+      {
+        ...sale,
+        eliminado: true,
+        eliminado_motivo: reason,
+        eliminado_at: new Date().toISOString()
+      },
+      ...current
+    ])
     setVoidingSale(null)
     setNotice(`${saleLabel(sale.folio_diario, sale.fecha_dia)} anulada. Ya no influye en este reporte.`)
   }
@@ -158,8 +180,55 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
     }
 
     setExpenses((current) => current.filter((item) => item.id !== expense.id))
+    setVoidedExpenses((current) => [
+      {
+        ...expense,
+        eliminado: true,
+        eliminado_motivo: reason,
+        eliminado_at: new Date().toISOString()
+      },
+      ...current
+    ])
     setVoidingExpense(null)
     setNotice(`Egreso anulado: ${expense.descripcion}. Ya no influye en este reporte.`)
+  }
+
+  async function handleRestoreSale(sale: Sale) {
+    setRestoringId(sale.id)
+    setError("")
+    setNotice("")
+
+    const { error: restoreError } = await restoreSale(sale.id)
+
+    setRestoringId("")
+
+    if (restoreError) {
+      setError(restoreError.message)
+      return
+    }
+
+    setVoidedSales((current) => current.filter((item) => item.id !== sale.id))
+    setSales((current) => [{ ...sale, eliminado: false }, ...current])
+    setNotice(`${saleLabel(sale.folio_diario, sale.fecha_dia)} restaurada. Vuelve a influir en el reporte.`)
+  }
+
+  async function handleRestoreExpense(expense: Expense) {
+    setRestoringId(expense.id)
+    setError("")
+    setNotice("")
+
+    const { error: restoreError } = await restoreExpense(expense.id)
+
+    setRestoringId("")
+
+    if (restoreError) {
+      setError(restoreError.message)
+      return
+    }
+
+    setVoidedExpenses((current) => current.filter((item) => item.id !== expense.id))
+    setExpenses((current) => [{ ...expense, eliminado: false }, ...current])
+    setNotice(`Egreso restaurado: ${expense.descripcion}. Vuelve a influir en el reporte.`)
   }
 
   return (
@@ -317,6 +386,65 @@ export function ReportsModule({ refreshSignal }: ReportsModuleProps) {
                   </button>
                 </article>
               ))}
+
+              <article className="panel">
+                <div className="section-title">
+                  <h2>Historial de anulaciones</h2>
+                  <p>Ventas y egresos anulados en el mismo filtro. No influyen en las metricas.</p>
+                </div>
+              </article>
+
+              {voidedSales.length === 0 && voidedExpenses.length === 0 && (
+                <div className="panel empty-state">No hay anulaciones para este filtro.</div>
+              )}
+
+              {voidedSales.map((sale) => (
+                <article className="history-row" key={`voided-sale-${sale.id}`}>
+                  <div className="history-meta">
+                    <span className="badge off">Venta anulada</span>
+                    <span>{saleLabel(sale.folio_diario, sale.fecha_dia)}</span>
+                    <span>{formatVoidedAt(sale.eliminado_at)}</span>
+                  </div>
+                  <div className="total-line">
+                    <strong>{formatCurrency(sale.total)}</strong>
+                    <span className="muted">{sale.eliminado_motivo ?? "Sin motivo registrado"}</span>
+                  </div>
+                  <button
+                    className="button subtle"
+                    type="button"
+                    onClick={() => handleRestoreSale(sale)}
+                    disabled={restoringId === sale.id}
+                  >
+                    <RotateCcw size={16} aria-hidden="true" />
+                    {restoringId === sale.id ? "Restaurando..." : "Deshacer anulacion"}
+                  </button>
+                </article>
+              ))}
+
+              {voidedExpenses.map((expense) => (
+                <article className="history-row" key={`voided-expense-${expense.id}`}>
+                  <div className="history-meta">
+                    <span className="badge off">Egreso anulado</span>
+                    <span>{formatDateForReport(expense.fecha_dia)}</span>
+                    <span>{formatVoidedAt(expense.eliminado_at)}</span>
+                  </div>
+                  <div className="total-line">
+                    <strong>{formatCurrency(expense.valor)}</strong>
+                    <span className="muted">
+                      {expense.descripcion} - {expense.eliminado_motivo ?? "Sin motivo registrado"}
+                    </span>
+                  </div>
+                  <button
+                    className="button subtle"
+                    type="button"
+                    onClick={() => handleRestoreExpense(expense)}
+                    disabled={restoringId === expense.id}
+                  >
+                    <RotateCcw size={16} aria-hidden="true" />
+                    {restoringId === expense.id ? "Restaurando..." : "Deshacer anulacion"}
+                  </button>
+                </article>
+              ))}
             </div>
 
             <aside className="history-list">
@@ -429,4 +557,9 @@ function formatDateForReport(dateKey: string) {
   const [year, month, day] = dateKey.split("-")
   if (!year || !month || !day) return dateKey
   return `${day}/${month}/${year}`
+}
+
+function formatVoidedAt(value: string | null) {
+  if (!value) return "Sin fecha de anulacion"
+  return formatDateTime(value)
 }
