@@ -59,6 +59,7 @@ export function AdminShell() {
   }, [canAccessAdmin, loadRestaurants])
 
   const activeCount = useMemo(() => restaurants.filter((restaurant) => restaurant.activo).length, [restaurants])
+  const submitLabel = saving ? "Guardando..." : editingId ? "Guardar cambios" : "Registrar restaurante"
 
   function updateForm<K extends keyof RestaurantForm>(key: K, value: RestaurantForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -165,9 +166,15 @@ export function AdminShell() {
 
       <section className="admin-grid">
         <form className="panel form-grid admin-form" onSubmit={handleSubmit}>
-          <div className="section-title">
-            <h2>{editingId ? "Editar restaurante" : "Nuevo restaurante"}</h2>
-            <p>El correo administrador sera el acceso operativo del negocio.</p>
+          <div className="admin-form-heading">
+            <div className="section-title">
+              <h2>{editingId ? "Editar restaurante" : "Nuevo restaurante"}</h2>
+              <p>El correo administrador sera el acceso operativo del negocio.</p>
+            </div>
+            <button className="button primary admin-form-submit" type="submit" disabled={saving}>
+              {editingId ? <Check size={18} /> : <Plus size={18} />}
+              {submitLabel}
+            </button>
           </div>
 
           <div className="field">
@@ -244,10 +251,10 @@ export function AdminShell() {
             </label>
           </div>
 
-          <div className="actions-row">
+          <div className="actions-row admin-form-actions">
             <button className="button primary" type="submit" disabled={saving}>
               {editingId ? <Check size={18} /> : <Plus size={18} />}
-              {saving ? "Guardando..." : editingId ? "Guardar cambios" : "Registrar restaurante"}
+              {submitLabel}
             </button>
             {editingId && (
               <button className="button subtle" type="button" onClick={resetForm} disabled={saving}>
