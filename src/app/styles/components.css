@@ -1,0 +1,251 @@
+/* Shared UI primitives */
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.field label {
+  color: #344054;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.field input,
+.field textarea,
+.field select,
+.search-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  min-height: 44px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.field textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+.search-input:focus {
+  border-color: #155e75;
+  box-shadow: 0 0 0 4px rgba(21, 94, 117, 0.13);
+}
+
+.button {
+  min-height: 42px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 14px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 800;
+  transition:
+  transform var(--duration-fast) var(--ease-standard),
+  opacity var(--duration-fast) var(--ease-standard),
+  background var(--duration-fast) var(--ease-standard),
+  box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(16, 20, 38, 0.14);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button.primary {
+  background: var(--brand);
+}
+
+.button.blue {
+  background: var(--blue);
+}
+
+.button.mint {
+  background: var(--mint);
+}
+
+.button.gold {
+  background: linear-gradient(135deg, var(--gold), #f0d996);
+  color: #17120a;
+  text-decoration: none;
+}
+
+.button.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-dark);
+  color: var(--ink-on-dark);
+  text-decoration: none;
+}
+
+.button.warn {
+  background: var(--amber);
+}
+
+.button.danger {
+  background: var(--danger);
+}
+
+.button.subtle {
+  background: #edf2f7;
+  color: var(--ink);
+}
+
+.button.icon {
+  width: 42px;
+  padding: 0;
+}
+
+.alert {
+  border: 1px solid #f3c6c0;
+  color: #9f2b22;
+  background: #fff4f2;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.notice {
+  border: 1px solid #b8dfcf;
+  color: #17614f;
+  background: #effaf5;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.inline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.loading-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.empty-state,
+.muted {
+  color: var(--muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(24, 32, 51, 0.38);
+  animation: backdrop-in var(--duration-soft) var(--ease-standard) both;
+}
+
+.modal-panel {
+  width: min(100%, 560px);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(24, 32, 51, 0.22);
+  padding: 20px;
+  animation: modal-in var(--duration-soft) var(--ease-standard) both;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-soft);
+}
+
+.check-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--brand);
+}
+
+.check-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.check-row small {
+  color: var(--muted);
+}
+
+.search-box .search-input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.button.primary:hover,
+.button.mint:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 820px) {
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 820px) {
+  .modal-backdrop {
+    z-index: 120;
+  }
+}

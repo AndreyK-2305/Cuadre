@@ -23,7 +23,14 @@ sin partir desde cero en cada implementacion.
 - Configuracion flexible para nuevas verticales de negocio.
 - Documentacion de trabajo para escalar el desarrollo de forma controlada.
 
-## Estado
+## Desarrollo
 
-Repositorio inicial de Cuadre. La base tecnica parte de IsaCream y se ira ajustando para
-convertirse en una solucion reutilizable para nuevos clientes.
+Este proyecto usa pnpm como gestor de paquetes.
+
+```bash
+pnpm install
+pnpm run dev
+pnpm run build
+pnpm run type-check
+pnpm run lint
+```
