@@ -27,22 +27,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Completa nombre, correo, telefono, fecha y plan." }, { status: 400 })
   }
 
-  const { data: authData, error: authError } = await clients.serviceClient.auth.admin.createUser({
-    email: payload.admin_email,
-    password: createPendingPassword(),
-    email_confirm: true,
-    user_metadata: createAdminMetadata(payload.nombre, true)
-  })
-
-  const adminUser = authData.user
-
-  if (authError || !adminUser) {
-    return NextResponse.json(
-      { error: authError?.message ?? "No se pudo crear la cuenta pendiente del administrador." },
-      { status: 409 }
-    )
-  }
-
   const { data: restaurant, error: restaurantError } = await clients.serviceClient
     .from("restaurantes")
     .insert(payload)
@@ -50,19 +34,17 @@ export async function POST(request: NextRequest) {
     .single<Restaurant>()
 
   if (restaurantError || !restaurant) {
-    await clients.serviceClient.auth.admin.deleteUser(adminUser.id)
     return NextResponse.json(
       { error: restaurantError?.message ?? "No se pudo registrar el emprendimiento." },
       { status: 400 }
     )
   }
 
-  const { error: profileError } = await upsertAdminProfile(clients.serviceClient, adminUser.id, restaurant)
+  const adminUser = await ensureAdminUser(clients.serviceClient, restaurant, { resetPassword: true })
 
-  if (profileError) {
+  if ("error" in adminUser) {
     await clients.serviceClient.from("restaurantes").delete().eq("id", restaurant.id)
-    await clients.serviceClient.auth.admin.deleteUser(adminUser.id)
-    return NextResponse.json({ error: profileError.message }, { status: 400 })
+    return NextResponse.json({ error: adminUser.error }, { status: 400 })
   }
 
   return NextResponse.json({ restaurant })
@@ -200,7 +182,8 @@ async function getAuthorizedClients(request: NextRequest) {
 
 async function ensureAdminUser(
   serviceClient: SupabaseClient,
-  restaurant: Restaurant
+  restaurant: Restaurant,
+  options: { resetPassword?: boolean } = {}
 ): Promise<{ user: User } | { error: string }> {
   const { data: profile } = await serviceClient
     .from("usuarios")
@@ -208,17 +191,51 @@ async function ensureAdminUser(
     .ilike("email", restaurant.admin_email)
     .maybeSingle<{ user_id: string }>()
 
+  let user: User | null = null
+
   if (profile?.user_id) {
     const { data, error } = await serviceClient.auth.admin.getUserById(profile.user_id)
 
     if (data.user) {
-      await upsertAdminProfile(serviceClient, data.user.id, restaurant)
-      return { user: data.user }
+      user = data.user
     }
 
-    if (error) {
+    if (error && !isMissingUserError(error.message)) {
       return { error: error.message }
     }
+  }
+
+  if (!user) {
+    const existingUser = await findAuthUserByEmail(serviceClient, restaurant.admin_email)
+
+    if ("error" in existingUser) {
+      return { error: existingUser.error }
+    }
+
+    user = existingUser.user
+  }
+
+  if (user) {
+    if (options.resetPassword) {
+      const { data, error } = await serviceClient.auth.admin.updateUserById(user.id, {
+        password: createPendingPassword(),
+        user_metadata: createAdminMetadata(restaurant.nombre, true)
+      })
+
+      if (error || !data.user) {
+        return { error: error?.message ?? "No se pudo dejar la cuenta pendiente." }
+      }
+
+      user = data.user
+    }
+
+    const { error: profileError } = await upsertAdminProfile(serviceClient, user.id, restaurant)
+
+    if (profileError) {
+      return { error: profileError.message }
+    }
+
+    return { user }
   }
 
   const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
@@ -240,6 +257,39 @@ async function ensureAdminUser(
   }
 
   return { user: authData.user }
+}
+
+async function findAuthUserByEmail(
+  serviceClient: SupabaseClient,
+  email: string
+): Promise<{ user: User | null } | { error: string }> {
+  const normalizedEmail = email.toLowerCase()
+  let page = 1
+
+  while (page <= 20) {
+    const { data, error } = await serviceClient.auth.admin.listUsers({
+      page,
+      perPage: 100
+    })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail)
+
+    if (user) {
+      return { user }
+    }
+
+    if (data.users.length < 100) {
+      return { user: null }
+    }
+
+    page += 1
+  }
+
+  return { user: null }
 }
 
 function upsertAdminProfile(serviceClient: SupabaseClient, userId: string, restaurant: Restaurant) {
@@ -264,4 +314,8 @@ function createAdminMetadata(name: string, passwordPending: boolean) {
     name,
     cuadre_password_pending: passwordPending
   }
+}
+
+function isMissingUserError(message: string) {
+  return message.toLowerCase().includes("not found")
 }

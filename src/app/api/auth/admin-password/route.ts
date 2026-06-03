@@ -140,7 +140,16 @@ async function findAdminAccount(
   }
 
   if (!profile?.user_id) {
-    return { restaurant: restaurant ?? null, user: null }
+    const existingUser = await findAuthUserByEmail(serviceClient, email)
+
+    if ("error" in existingUser) {
+      return { error: existingUser.error }
+    }
+
+    return {
+      restaurant: restaurant ?? null,
+      user: existingUser.user
+    }
   }
 
   const { data, error } = await serviceClient.auth.admin.getUserById(profile.user_id)
@@ -166,6 +175,39 @@ function upsertAdminProfile(serviceClient: SupabaseClient, userId: string, resta
     },
     { onConflict: "user_id" }
   )
+}
+
+async function findAuthUserByEmail(
+  serviceClient: SupabaseClient,
+  email: string
+): Promise<{ user: User | null } | { error: string }> {
+  const normalizedEmail = email.toLowerCase()
+  let page = 1
+
+  while (page <= 20) {
+    const { data, error } = await serviceClient.auth.admin.listUsers({
+      page,
+      perPage: 100
+    })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalizedEmail)
+
+    if (user) {
+      return { user }
+    }
+
+    if (data.users.length < 100) {
+      return { user: null }
+    }
+
+    page += 1
+  }
+
+  return { user: null }
 }
 
 function isPasswordPending(user: User) {
