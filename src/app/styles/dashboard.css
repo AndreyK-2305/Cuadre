@@ -2335,6 +2335,38 @@ input:focus-visible,
   align-content: start;
 }
 
+.announcement-target-list {
+  display: grid;
+  max-height: 280px;
+  gap: 10px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.announcement-target-list .check-row {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.announcement-history {
+  align-content: start;
+  max-height: 640px;
+  overflow: auto;
+}
+
+.announcement-history-item {
+  gap: 6px;
+}
+
+.announcement-history-item span {
+  white-space: normal;
+}
+
+.announcement-history-item small {
+  color: var(--dashboard-accent);
+  font-weight: 800;
+}
+
 .admin-empty {
   width: min(100%, 520px);
   margin: auto;

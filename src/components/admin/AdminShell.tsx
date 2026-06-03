@@ -8,15 +8,18 @@ import {
   CreditCard,
   Edit3,
   KeyRound,
+  Megaphone,
   Plus,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   SlidersHorizontal,
   Trash2
 } from "lucide-react"
 import { LoginForm } from "@/components/auth/LoginForm"
 import { useDashboardSession } from "@/components/dashboard/useDashboardSession"
+import { createAnnouncement, fetchAdminAnnouncements } from "@/lib/data/announcements"
 import {
   changeRestaurantAdminPassword,
   createRestaurant,
@@ -29,7 +32,14 @@ import {
   updateRestaurantActiveState,
   updateSubscriptionPlan
 } from "@/lib/data/restaurants"
-import type { Restaurant, RestaurantWritePayload, SubscriptionLevel, SubscriptionPlan } from "@/types/app"
+import type {
+  Announcement,
+  AnnouncementTargetType,
+  Restaurant,
+  RestaurantWritePayload,
+  SubscriptionLevel,
+  SubscriptionPlan
+} from "@/types/app"
 
 type RestaurantForm = {
   nombre: string
@@ -50,8 +60,24 @@ const emptyForm: RestaurantForm = {
 }
 
 const subscriptionLevels: SubscriptionLevel[] = ["Gratis", "Basico", "Completo", "Emprendedor"]
-type AdminView = "clients" | "subscriptions" | "plans"
+type AdminView = "clients" | "subscriptions" | "plans" | "notices"
 type PlanFilter = "Todos" | SubscriptionLevel
+
+type AnnouncementForm = {
+  titulo: string
+  mensaje: string
+  target_type: AnnouncementTargetType
+  target_plan: SubscriptionLevel
+  target_restaurante_ids: string[]
+}
+
+const emptyAnnouncementForm: AnnouncementForm = {
+  titulo: "",
+  mensaje: "",
+  target_type: "restaurants",
+  target_plan: "Basico",
+  target_restaurante_ids: []
+}
 
 export function AdminShell() {
   const { canAccessAdmin, handleSignOut, isAuthenticated, isSigningOut, loading, profileError } = useDashboardSession({
@@ -65,12 +91,16 @@ export function AdminShell() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
   const [loadingPlans, setLoadingPlans] = useState(true)
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [savingPlan, setSavingPlan] = useState("")
+  const [savingPlans, setSavingPlans] = useState(false)
+  const [sendingAnnouncement, setSendingAnnouncement] = useState(false)
   const [updatingAccess, setUpdatingAccess] = useState(false)
   const [updatingRestaurantId, setUpdatingRestaurantId] = useState("")
   const [passwordRestaurant, setPasswordRestaurant] = useState<Restaurant | null>(null)
   const [newPassword, setNewPassword] = useState("")
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [announcementForm, setAnnouncementForm] = useState<AnnouncementForm>(emptyAnnouncementForm)
   const [searchTerm, setSearchTerm] = useState("")
   const [planFilter, setPlanFilter] = useState<PlanFilter>("Todos")
   const [error, setError] = useState("")
@@ -104,12 +134,27 @@ export function AdminShell() {
     }
   }, [])
 
+  const loadAnnouncements = useCallback(async () => {
+    setLoadingAnnouncements(true)
+    const { data, error: announcementsError } = await fetchAdminAnnouncements()
+
+    if (announcementsError) {
+      setError(announcementsError.message)
+      setLoadingAnnouncements(false)
+      return
+    }
+
+    setAnnouncements((data ?? []) as Announcement[])
+    setLoadingAnnouncements(false)
+  }, [])
+
   useEffect(() => {
     if (canAccessAdmin) {
       void loadRestaurants()
       void loadPlans()
+      void loadAnnouncements()
     }
-  }, [canAccessAdmin, loadPlans, loadRestaurants])
+  }, [canAccessAdmin, loadAnnouncements, loadPlans, loadRestaurants])
 
   const activeCount = useMemo(() => restaurants.filter((restaurant) => restaurant.activo).length, [restaurants])
   const recentActiveRestaurants = useMemo(
@@ -162,6 +207,23 @@ export function AdminShell() {
 
   function updatePlanDraft<K extends keyof SubscriptionPlan>(nivel: SubscriptionLevel, key: K, value: SubscriptionPlan[K]) {
     setPlans((current) => current.map((plan) => (plan.nivel === nivel ? { ...plan, [key]: value } : plan)))
+  }
+
+  function updateAnnouncementForm<K extends keyof AnnouncementForm>(key: K, value: AnnouncementForm[K]) {
+    setAnnouncementForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function toggleAnnouncementRestaurant(restaurantId: string) {
+    setAnnouncementForm((current) => {
+      const isSelected = current.target_restaurante_ids.includes(restaurantId)
+
+      return {
+        ...current,
+        target_restaurante_ids: isSelected
+          ? current.target_restaurante_ids.filter((id) => id !== restaurantId)
+          : [...current.target_restaurante_ids, restaurantId]
+      }
+    })
   }
 
   function openPasswordDialog(restaurant: Restaurant) {
@@ -295,34 +357,80 @@ export function AdminShell() {
     setNotice(`${restaurant.nombre} fue eliminado con sus registros asociados.`)
   }
 
-  async function handleSavePlan(plan: SubscriptionPlan) {
-    if (!plan.nombre.trim()) {
-      setError("El nombre del plan es obligatorio.")
+  async function handleSavePlans() {
+    const hasInvalidPlan = plans.some((plan) => !plan.nombre.trim() || !Number.isFinite(plan.precio) || plan.precio < 0)
+
+    if (hasInvalidPlan) {
+      setError("Cada plan debe tener nombre y un precio valido.")
       return
     }
 
-    if (!Number.isFinite(plan.precio) || plan.precio < 0) {
-      setError("El precio del plan debe ser un valor valido.")
-      return
-    }
-
-    setSavingPlan(plan.nivel)
+    setSavingPlans(true)
     setError("")
     setNotice("")
 
-    const { data, error: planError } = await updateSubscriptionPlan(plan.nivel, {
-      nombre: plan.nombre.trim(),
-      precio: Math.round(plan.precio)
-    })
-    setSavingPlan("")
+    const responses = await Promise.all(
+      plans.map((plan) =>
+        updateSubscriptionPlan(plan.nivel, {
+          nombre: plan.nombre.trim(),
+          precio: Math.round(plan.precio)
+        })
+      )
+    )
+    setSavingPlans(false)
+    const failedResponse = responses.find((response) => response.error)
 
-    if (planError || !data) {
-      setError(planError?.message ?? "No se pudo actualizar el plan.")
+    if (failedResponse?.error) {
+      setError(failedResponse.error.message)
       return
     }
 
-    setPlans((current) => current.map((item) => (item.nivel === plan.nivel ? data as SubscriptionPlan : item)))
-    setNotice(`Plan ${data.nombre} actualizado.`)
+    const updatedPlans = responses.map((response) => response.data).filter(Boolean) as SubscriptionPlan[]
+
+    if (updatedPlans.length !== plans.length) {
+      setError("No se pudieron confirmar todos los planes actualizados.")
+      return
+    }
+
+    setPlans(updatedPlans)
+    setNotice("Planes actualizados.")
+  }
+
+  async function handleCreateAnnouncement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError("")
+    setNotice("")
+
+    const payload = {
+      titulo: announcementForm.titulo.trim(),
+      mensaje: announcementForm.mensaje.trim(),
+      target_type: announcementForm.target_type,
+      target_restaurante_ids: announcementForm.target_type === "restaurants" ? announcementForm.target_restaurante_ids : [],
+      target_plan: announcementForm.target_type === "plan" ? announcementForm.target_plan : null
+    }
+
+    if (!payload.titulo || !payload.mensaje) {
+      setError("Completa titulo y mensaje del aviso.")
+      return
+    }
+
+    if (payload.target_type === "restaurants" && payload.target_restaurante_ids.length === 0) {
+      setError("Selecciona al menos un emprendimiento para enviar el aviso.")
+      return
+    }
+
+    setSendingAnnouncement(true)
+    const { data, error: createError } = await createAnnouncement(payload)
+    setSendingAnnouncement(false)
+
+    if (createError || !data) {
+      setError(createError?.message ?? "No se pudo crear el aviso.")
+      return
+    }
+
+    setAnnouncements((current) => [data as Announcement, ...current])
+    setAnnouncementForm(emptyAnnouncementForm)
+    setNotice("Aviso creado. Aparecera una sola vez en el proximo inicio de sesion de los destinatarios.")
   }
 
   if (loading) {
@@ -396,6 +504,14 @@ export function AdminShell() {
         >
           <SlidersHorizontal size={17} aria-hidden="true" />
           Planes
+        </button>
+        <button
+          className={`button subtle ${activeView === "notices" ? "active" : ""}`}
+          type="button"
+          onClick={() => setActiveView("notices")}
+        >
+          <Megaphone size={17} aria-hidden="true" />
+          Avisos
         </button>
       </nav>
 
@@ -690,19 +806,131 @@ export function AdminShell() {
                       onChange={(event) => updatePlanDraft(plan.nivel, "precio", Number(event.target.value))}
                     />
                   </div>
-                  <button
-                    className="button primary"
-                    type="button"
-                    onClick={() => handleSavePlan(plan)}
-                    disabled={savingPlan === plan.nivel}
-                  >
-                    <Check size={18} aria-hidden="true" />
-                    {savingPlan === plan.nivel ? "Guardando..." : "Guardar plan"}
-                  </button>
                 </article>
               ))}
             </div>
           )}
+
+          {!loadingPlans && (
+            <div className="actions-row admin-form-actions">
+              <button className="button primary" type="button" onClick={handleSavePlans} disabled={savingPlans}>
+                <Check size={18} aria-hidden="true" />
+                {savingPlans ? "Guardando planes..." : "Guardar cambios de planes"}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeView === "notices" && (
+        <section className="admin-grid">
+          <form className="panel form-grid admin-form" onSubmit={handleCreateAnnouncement}>
+            <div className="section-title">
+              <h2>Nuevo aviso</h2>
+              <p>Envia un mensaje emergente que se muestra una sola vez al proximo inicio de sesion.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="announcement-title">Titulo</label>
+              <input
+                id="announcement-title"
+                value={announcementForm.titulo}
+                onChange={(event) => updateAnnouncementForm("titulo", event.target.value)}
+                placeholder="Mantenimiento programado"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="announcement-message">Mensaje</label>
+              <textarea
+                id="announcement-message"
+                value={announcementForm.mensaje}
+                onChange={(event) => updateAnnouncementForm("mensaje", event.target.value)}
+                placeholder="El sistema estara en mantenimiento el domingo desde las 10:00 p.m."
+                required
+              />
+            </div>
+
+            <div className="inline-grid">
+              <div className="field">
+                <label htmlFor="announcement-target">Enviar a</label>
+                <select
+                  id="announcement-target"
+                  value={announcementForm.target_type}
+                  onChange={(event) => updateAnnouncementForm("target_type", event.target.value as AnnouncementTargetType)}
+                >
+                  <option value="restaurants">Emprendimientos seleccionados</option>
+                  <option value="plan">Todos los de un plan</option>
+                </select>
+              </div>
+
+              {announcementForm.target_type === "plan" && (
+                <div className="field">
+                  <label htmlFor="announcement-plan">Plan</label>
+                  <select
+                    id="announcement-plan"
+                    value={announcementForm.target_plan}
+                    onChange={(event) => updateAnnouncementForm("target_plan", event.target.value as SubscriptionLevel)}
+                  >
+                    {subscriptionLevels.map((level) => (
+                      <option key={level} value={level}>{planNames.get(level) ?? level}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {announcementForm.target_type === "restaurants" && (
+              <div className="announcement-target-list">
+                {restaurants.map((restaurant) => (
+                  <label className="check-row" key={restaurant.id}>
+                    <input
+                      type="checkbox"
+                      checked={announcementForm.target_restaurante_ids.includes(restaurant.id)}
+                      onChange={() => toggleAnnouncementRestaurant(restaurant.id)}
+                    />
+                    <span>
+                      <strong>{restaurant.nombre}</strong>
+                      <small>{restaurant.admin_email}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="actions-row admin-form-actions">
+              <button className="button primary" type="submit" disabled={sendingAnnouncement}>
+                <Send size={18} aria-hidden="true" />
+                {sendingAnnouncement ? "Enviando..." : "Crear aviso"}
+              </button>
+            </div>
+          </form>
+
+          <aside className="panel admin-list announcement-history">
+            <div className="section-title">
+              <h2>Avisos recientes</h2>
+              <p>Mensajes pendientes o ya enviados a clientes.</p>
+            </div>
+
+            {loadingAnnouncements && <div className="empty-state">Cargando avisos...</div>}
+            {!loadingAnnouncements && announcements.length === 0 && (
+              <div className="empty-state">Aun no hay avisos creados.</div>
+            )}
+
+            {!loadingAnnouncements &&
+              announcements.map((announcement) => (
+                <article className="admin-recent-item announcement-history-item" key={announcement.id}>
+                  <strong>{announcement.titulo}</strong>
+                  <span>{announcement.mensaje}</span>
+                  <small>
+                    {announcement.target_type === "plan"
+                      ? `Plan ${planNames.get(announcement.target_plan ?? "Gratis") ?? announcement.target_plan}`
+                      : `${announcement.target_restaurante_ids.length} emprendimiento(s)`}
+                  </small>
+                </article>
+              ))}
+          </aside>
         </section>
       )}
 

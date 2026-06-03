@@ -11,6 +11,24 @@ export type SubscriptionPlan = {
 
 export type SubscriptionPlanPayload = Pick<SubscriptionPlan, "nombre" | "precio">
 
+export type AnnouncementTargetType = "restaurants" | "plan"
+
+export type Announcement = {
+  id: string
+  titulo: string
+  mensaje: string
+  target_type: AnnouncementTargetType
+  target_restaurante_ids: string[]
+  target_plan: SubscriptionLevel | null
+  activo: boolean
+  created_at: string
+}
+
+export type AnnouncementCreatePayload = Pick<
+  Announcement,
+  "titulo" | "mensaje" | "target_type" | "target_restaurante_ids" | "target_plan"
+>
+
 export type Restaurant = {
   id: string
   nombre: string

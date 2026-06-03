@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   LogOut,
+  Megaphone,
   ReceiptText,
   Settings2,
   ShieldCheck,
@@ -17,12 +18,14 @@ import {
   UserRound
 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { acknowledgeAnnouncement, fetchPendingAnnouncements } from "@/lib/data/announcements"
+import { defaultSubscriptionPlans, fetchSubscriptionPlans } from "@/lib/data/restaurants"
 import { SalesModule } from "./SalesModule"
 import { InventoryModule } from "./InventoryModule"
 import { ReportsModule } from "./ReportsModule"
 import { ExpensesModule } from "./ExpensesModule"
 import { useDashboardSession } from "./useDashboardSession"
-import type { MobileCartState } from "@/types/app"
+import type { Announcement, MobileCartState, SubscriptionPlan } from "@/types/app"
 
 type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes" | "admin"
 
@@ -60,6 +63,9 @@ export function DashboardShell() {
   })
   const [cartOpenSignal, setCartOpenSignal] = useState(0)
   const [subscriptionNoticeDismissed, setSubscriptionNoticeDismissed] = useState(false)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultSubscriptionPlans)
+  const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([])
+  const [activeAnnouncement, setActiveAnnouncement] = useState<Announcement | null>(null)
 
   const modules = useMemo(() => (canAccessAdmin ? superAdminModules : operatorModules), [canAccessAdmin])
 
@@ -108,16 +114,52 @@ export function DashboardShell() {
     []
   )
 
+  useEffect(() => {
+    if (canAccessAdmin || !profile?.restaurante) return
+
+    let mounted = true
+
+    async function loadOperationalMessages() {
+      const [plansResponse, announcementsResponse] = await Promise.all([
+        fetchSubscriptionPlans(),
+        fetchPendingAnnouncements()
+      ])
+
+      if (!mounted) return
+
+      setPlans(plansResponse.data ?? defaultSubscriptionPlans)
+
+      if (announcementsResponse.data && announcementsResponse.data.length > 0) {
+        setPendingAnnouncements(announcementsResponse.data)
+        setActiveAnnouncement(announcementsResponse.data[0])
+      }
+    }
+
+    void loadOperationalMessages()
+
+    return () => {
+      mounted = false
+    }
+  }, [canAccessAdmin, profile?.restaurante])
+
+  const planByLevel = useMemo(
+    () => new Map(plans.map((plan) => [plan.nivel, plan])),
+    [plans]
+  )
+
   const subscriptionNotice = useMemo(() => {
     if (canAccessAdmin || subscriptionNoticeDismissed || !profile?.restaurante) return null
 
     const restaurant = profile.restaurante
+    const currentPlan = planByLevel.get(restaurant.nivel_suscripcion)
+    const planName = currentPlan?.nombre ?? restaurant.nivel_suscripcion
+    const paymentValue = currentPlan && currentPlan.precio > 0 ? formatCurrency(currentPlan.precio) : "A medida"
 
     if (restaurant.nivel_suscripcion === "Gratis") {
       return {
         title: "Cuadre puede darte mas alcance",
         description:
-          "Tu emprendimiento esta en el plan Gratis. Con un plan pago puedes ampliar reportes, reducir limites y trabajar con mas herramientas de control.",
+          `Tu emprendimiento esta en el plan ${planName}. Con un plan pago puedes ampliar reportes, reducir limites y trabajar con mas herramientas de control.`,
         icon: Sparkles
       }
     }
@@ -128,10 +170,10 @@ export function DashboardShell() {
 
     return {
       title: daysUntilPayment === 0 ? "Pago de suscripcion para hoy" : `Quedan ${daysUntilPayment} dias para el pago`,
-      description: `${restaurant.nombre} esta en el plan ${restaurant.nivel_suscripcion}. Recuerda mantener la suscripcion al dia para conservar el acceso operativo.`,
+      description: `${restaurant.nombre} esta en el plan ${planName}. Valor a pagar: ${paymentValue}. Recuerda mantener la suscripcion al dia para conservar el acceso operativo.`,
       icon: BellRing
     }
-  }, [canAccessAdmin, profile?.restaurante, subscriptionNoticeDismissed])
+  }, [canAccessAdmin, planByLevel, profile?.restaurante, subscriptionNoticeDismissed])
 
   const activeContent = useMemo(() => {
     if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
@@ -180,6 +222,17 @@ export function DashboardShell() {
     setSessionMenuOpen(false)
     if (!mobileCartState.hasItems) return
     setCartOpenSignal((current) => current + 1)
+  }
+
+  async function closeAnnouncement() {
+    if (!activeAnnouncement) return
+
+    const closedAnnouncement = activeAnnouncement
+    void acknowledgeAnnouncement(closedAnnouncement.id)
+    const nextAnnouncements = pendingAnnouncements.filter((announcement) => announcement.id !== closedAnnouncement.id)
+
+    setPendingAnnouncements(nextAnnouncements)
+    setActiveAnnouncement(nextAnnouncements[0] ?? null)
   }
 
   const sessionPopover = (
@@ -356,10 +409,39 @@ export function DashboardShell() {
         })}
       </nav>
 
-      {subscriptionNotice && (
+      {activeAnnouncement && (
+        <OperationalAnnouncement announcement={activeAnnouncement} onClose={closeAnnouncement} />
+      )}
+
+      {!activeAnnouncement && subscriptionNotice && (
         <SubscriptionReminder notice={subscriptionNotice} onClose={() => setSubscriptionNoticeDismissed(true)} />
       )}
     </main>
+  )
+}
+
+function OperationalAnnouncement({
+  announcement,
+  onClose
+}: {
+  announcement: Announcement
+  onClose: () => void
+}) {
+  return (
+    <div className="modal-backdrop subscription-reminder-backdrop" role="presentation">
+      <section className="modal-panel subscription-reminder" role="dialog" aria-modal="true">
+        <span className="subscription-reminder-icon" aria-hidden="true">
+          <Megaphone size={22} />
+        </span>
+        <div>
+          <h2>{announcement.titulo}</h2>
+          <p>{announcement.mensaje}</p>
+        </div>
+        <button className="button primary" type="button" onClick={onClose}>
+          Entendido
+        </button>
+      </section>
+    </div>
   )
 }
 

@@ -41,6 +41,25 @@ values
   ('Emprendedor', 'Emprendedor', 0, 4)
 on conflict (nivel) do nothing;
 
+create table if not exists public.avisos_admin (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null,
+  mensaje text not null,
+  target_type text not null check (target_type in ('restaurants', 'plan')),
+  target_restaurante_ids uuid[] not null default '{}',
+  target_plan text check (target_plan in ('Gratis', 'Basico', 'Completo', 'Emprendedor')),
+  activo boolean not null default true,
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.avisos_lecturas (
+  aviso_id uuid not null references public.avisos_admin(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (aviso_id, user_id)
+);
+
 alter table public.usuarios
 add column if not exists rol text not null default 'Administrador',
 add column if not exists restaurante_id uuid references public.restaurantes(id) on delete set null;
@@ -244,6 +263,8 @@ create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(ven
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 create index if not exists idx_restaurantes_admin_email on public.restaurantes(lower(admin_email));
 create index if not exists idx_usuarios_restaurante on public.usuarios(restaurante_id);
+create index if not exists idx_avisos_admin_activo on public.avisos_admin(activo, created_at desc);
+create index if not exists idx_avisos_lecturas_user on public.avisos_lecturas(user_id, aviso_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -669,6 +690,8 @@ grant execute on function public.restaurar_egreso(uuid) to authenticated;
 
 alter table public.restaurantes enable row level security;
 alter table public.planes_suscripcion enable row level security;
+alter table public.avisos_admin enable row level security;
+alter table public.avisos_lecturas enable row level security;
 alter table public.usuarios enable row level security;
 alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
@@ -721,6 +744,58 @@ on public.planes_suscripcion for update
 to authenticated
 using (public.is_super_admin())
 with check (public.is_super_admin());
+
+drop policy if exists "Avisos visibles por destino" on public.avisos_admin;
+create policy "Avisos visibles por destino"
+on public.avisos_admin for select
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    activo = true
+    and public.current_restaurant_is_active()
+    and (
+      (
+        target_type = 'restaurants'
+        and public.current_restaurant_id() = any(target_restaurante_ids)
+      )
+      or (
+        target_type = 'plan'
+        and target_plan = (
+          select restaurantes.nivel_suscripcion
+          from public.restaurantes
+          where restaurantes.id = public.current_restaurant_id()
+        )
+      )
+    )
+  )
+);
+
+drop policy if exists "Superadministradores gestionan avisos" on public.avisos_admin;
+create policy "Superadministradores gestionan avisos"
+on public.avisos_admin for all
+to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
+
+drop policy if exists "Usuarios leen sus avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios leen sus avisos vistos"
+on public.avisos_lecturas for select
+to authenticated
+using (user_id = auth.uid() or public.is_super_admin());
+
+drop policy if exists "Usuarios marcan avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios marcan avisos vistos"
+on public.avisos_lecturas for insert
+to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "Usuarios actualizan sus avisos vistos" on public.avisos_lecturas;
+create policy "Usuarios actualizan sus avisos vistos"
+on public.avisos_lecturas for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
 drop policy if exists "Autenticados gestionan productos" on public.productos;
 create policy "Autenticados gestionan productos"
