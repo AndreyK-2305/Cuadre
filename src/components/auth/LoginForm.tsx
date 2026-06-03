@@ -18,7 +18,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
   const isAdminLogin = purpose === "admin"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [passwordMode, setPasswordMode] = useState<PasswordMode>("unknown")
+  const [passwordMode, setPasswordMode] = useState<PasswordMode>(isAdminLogin ? "signin" : "unknown")
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState("")
@@ -30,7 +30,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
     if (profileError || !profile) {
       await supabase.auth.signOut()
       setCheckingSession(false)
-      setError(profileError?.message ?? "No se pudo validar el perfil de acceso.")
+      setError(isAdminLogin ? profileError?.message ?? "No se pudo validar el perfil de acceso." : "Correo no activado.")
       return
     }
 
@@ -49,7 +49,14 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
     if (profile.rol === "SuperAdministrador") {
       await supabase.auth.signOut()
       setCheckingSession(false)
-      setError("El acceso administrativo se realiza desde /admin.")
+      setError("Correo no activado.")
+      return
+    }
+
+    if (!profile.restaurante_id) {
+      await supabase.auth.signOut()
+      setCheckingSession(false)
+      setError("Correo no activado.")
       return
     }
 
@@ -139,7 +146,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
   function handleEmailChange(value: string) {
     setEmail(value)
     setPassword("")
-    setPasswordMode("unknown")
+    setPasswordMode(isAdminLogin ? "signin" : "unknown")
     setError("")
     setNotice("")
   }
@@ -154,8 +161,14 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
 
     setLoading(true)
     const response = await fetch(`/api/auth/admin-password?email=${encodeURIComponent(normalizedEmail)}`)
-    const body = await response.json().catch(() => null) as { passwordPending?: boolean } | null
+    const body = await response.json().catch(() => null) as { isAuthorized?: boolean; passwordPending?: boolean } | null
     setLoading(false)
+
+    if (!body?.isAuthorized) {
+      setPasswordMode("unknown")
+      setError("Correo no activado.")
+      return
+    }
 
     setPasswordMode(body?.passwordPending ? "setup" : "signin")
     setNotice(body?.passwordPending ? "Crea tu contrasena para activar el acceso." : "")

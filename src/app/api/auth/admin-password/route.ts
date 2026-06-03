@@ -18,20 +18,24 @@ export async function GET(request: NextRequest) {
   const email = normalizeEmail(request.nextUrl.searchParams.get("email"))
 
   if (!email) {
-    return NextResponse.json({ passwordPending: false })
+    return NextResponse.json({ isAuthorized: false, passwordPending: false })
   }
 
   const account = await findAdminAccount(serviceClient.client, email)
 
   if ("error" in account) {
-    return NextResponse.json({ passwordPending: false })
+    return NextResponse.json({ isAuthorized: false, passwordPending: false })
+  }
+
+  if (!account.restaurant) {
+    return NextResponse.json({ isAuthorized: false, passwordPending: false })
   }
 
   if (!account.user) {
-    return NextResponse.json({ passwordPending: Boolean(account.restaurant) })
+    return NextResponse.json({ isAuthorized: true, passwordPending: true })
   }
 
-  return NextResponse.json({ passwordPending: isPasswordPending(account.user) })
+  return NextResponse.json({ isAuthorized: true, passwordPending: isPasswordPending(account.user) })
 }
 
 export async function POST(request: NextRequest) {
