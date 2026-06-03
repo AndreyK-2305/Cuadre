@@ -114,7 +114,7 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
   }
 
   return (
-    <div className="module">
+    <div className="module expenses-module">
       <div className="module-title">
         <div>
           <h2>Egresos</h2>
@@ -125,8 +125,8 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 
-      <section className="grid-two">
-        <form className="panel form-grid" onSubmit={handleSubmit}>
+      <section className="expenses-overview">
+        <form className="panel form-grid expense-form" onSubmit={handleSubmit}>
           <div className="section-title">
             <h2>Nuevo egreso</h2>
             <p>Describe el gasto y asigna el valor que salio de caja.</p>
@@ -176,13 +176,24 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
           </button>
         </form>
 
-        <section className="metric">
-          <span>Total de egresos</span>
-          <strong>{formatCurrency(totalExpenses)}</strong>
-          <small>{expenses.length} registros de hoy</small>
+        <section className="metric expense-summary">
+          <div>
+            <span>Total de egresos hoy</span>
+            <strong>{formatCurrency(totalExpenses)}</strong>
+          </div>
+          <div className="expense-summary-grid">
+            <div>
+              <small>Registros</small>
+              <b>{expenses.length}</b>
+            </div>
+            <div>
+              <small>Fecha</small>
+              <b>{formatDateForExpense(today)}</b>
+            </div>
+          </div>
           <div className="actions-row">
             <CalendarDays size={18} aria-hidden="true" />
-            <span>Hoy: {formatDateForExpense(today)}</span>
+            <span>Operacion diaria</span>
           </div>
         </section>
       </section>
@@ -190,37 +201,41 @@ export function ExpensesModule({ refreshSignal, onChanged }: ExpensesModuleProps
       {loading && <div className="panel empty-state">Cargando egresos...</div>}
 
       {!loading && (
-        <section className="history-list">
-          <article className="panel">
-            <div className="section-title">
-              <h2>Historial de egresos</h2>
-              <p>Gastos activos registrados durante la fecha actual.</p>
+        <section className="panel expenses-history-panel">
+          <div className="section-title">
+            <h2>Historial de egresos</h2>
+            <p>Gastos activos registrados durante la fecha actual.</p>
+          </div>
+
+          {expenses.length === 0 && (
+            <div className="expenses-empty-state">Aun no hay egresos registrados hoy.</div>
+          )}
+
+          {expenses.length > 0 && (
+            <div className="history-list expenses-history-list">
+              {expenses.map((expense) => (
+                <article className="history-row expense-row" key={expense.id}>
+                  <div className="history-meta">
+                    <span className="badge off">{formatDateForExpense(expense.fecha_dia)}</span>
+                    <span>{formatDateTime(expense.created_at)}</span>
+                  </div>
+                  <div className="total-line">
+                    <strong>{formatCurrency(expense.valor)}</strong>
+                    <span className="muted">{expense.descripcion}</span>
+                  </div>
+                  <button
+                    className="button subtle"
+                    type="button"
+                    onClick={() => setVoidingExpense(expense)}
+                    disabled={savingVoid}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Anular
+                  </button>
+                </article>
+              ))}
             </div>
-          </article>
-
-          {expenses.length === 0 && <div className="panel empty-state">Aun no hay egresos registrados hoy.</div>}
-
-          {expenses.map((expense) => (
-            <article className="history-row" key={expense.id}>
-              <div className="history-meta">
-                <span className="badge off">{formatDateForExpense(expense.fecha_dia)}</span>
-                <span>{formatDateTime(expense.created_at)}</span>
-              </div>
-              <div className="total-line">
-                <strong>{formatCurrency(expense.valor)}</strong>
-                <span className="muted">{expense.descripcion}</span>
-              </div>
-              <button
-                className="button subtle"
-                type="button"
-                onClick={() => setVoidingExpense(expense)}
-                disabled={savingVoid}
-              >
-                <Trash2 size={16} aria-hidden="true" />
-                Anular
-              </button>
-            </article>
-          ))}
+          )}
         </section>
       )}
 

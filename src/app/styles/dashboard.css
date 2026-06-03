@@ -521,6 +521,85 @@
   font-size: 1.35rem;
 }
 
+.expenses-module {
+  max-width: 1120px;
+}
+
+.expenses-overview {
+  display: grid;
+  grid-template-columns: minmax(360px, 540px) minmax(240px, 320px);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.expense-form,
+.expense-summary,
+.expenses-history-panel {
+  box-shadow: 0 14px 36px rgba(16, 20, 38, 0.08);
+}
+
+.expense-form {
+  gap: 12px;
+}
+
+.expense-form .section-title p {
+  max-width: 31rem;
+}
+
+.expense-summary {
+  align-content: space-between;
+  min-height: 100%;
+  background:
+    linear-gradient(145deg, rgba(21, 94, 117, 0.08), transparent 58%),
+    var(--surface);
+}
+
+.expense-summary strong {
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+}
+
+.expense-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expense-summary-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.expense-summary-grid b {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.expenses-history-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.expenses-empty-state {
+  min-height: 96px;
+  border: 1px dashed rgba(21, 94, 117, 0.22);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  text-align: center;
+}
+
+.expense-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 .report-filters {
   display: grid;
   gap: 16px;
@@ -602,6 +681,7 @@
   .sales-layout,
   .checkout-grid,
   .filter-grid,
+  .expenses-overview,
   .report-grid {
     grid-template-columns: 1fr;
   }
@@ -643,6 +723,14 @@
   }
 
   .stock-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .expenses-module {
+    max-width: none;
+  }
+
+  .expense-row {
     grid-template-columns: 1fr;
   }
 
