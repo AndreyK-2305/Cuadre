@@ -19,10 +19,10 @@ import {
 } from "@/lib/dashboard/reports"
 import { createExpensesReportQuery, createVoidedExpensesReportQuery, restoreExpense, voidExpense } from "@/lib/data/expenses"
 import { fetchProducts, fetchProductsByRestaurant } from "@/lib/data/products"
-import { fetchRestaurants } from "@/lib/data/restaurants"
+import { fetchRestaurants, fetchUserAuditProfiles } from "@/lib/data/restaurants"
 import { createSalesReportQuery, createVoidedSalesReportQuery, restoreSale, voidSale } from "@/lib/data/sales"
 import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
-import type { Expense, Product, Restaurant, Sale, SaleItem } from "@/types/app"
+import type { Expense, Product, Restaurant, Sale, SaleItem, UserAuditProfile } from "@/types/app"
 
 type ReportsModuleProps = {
   isGlobal?: boolean
@@ -39,6 +39,7 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
   const [voidedSales, setVoidedSales] = useState<Sale[]>([])
   const [voidedExpenses, setVoidedExpenses] = useState<Expense[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [usersById, setUsersById] = useState<Record<string, UserAuditProfile>>({})
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [selectedRestaurantId, setSelectedRestaurantId] = useState("")
   const [loadingRestaurants, setLoadingRestaurants] = useState(isGlobal)
@@ -95,6 +96,7 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
       setExpenses([])
       setVoidedSales([])
       setVoidedExpenses([])
+      setUsersById({})
       setLoading(false)
       setError("La fecha inicial no puede ser mayor que la fecha final.")
       return
@@ -106,6 +108,7 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
       setVoidedSales([])
       setVoidedExpenses([])
       setProducts([])
+      setUsersById({})
       setLoading(false)
       return
     }
@@ -138,9 +141,22 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
       return
     }
 
-    setSales((salesData ?? []) as Sale[])
+    const nextSales = (salesData ?? []) as Sale[]
+    const nextVoidedSales = (voidedSalesData ?? []) as Sale[]
+    const auditUserIds = [
+      ...nextSales.map((sale) => sale.user_id),
+      ...nextSales.map((sale) => sale.eliminado_por ?? ""),
+      ...nextVoidedSales.map((sale) => sale.user_id),
+      ...nextVoidedSales.map((sale) => sale.eliminado_por ?? "")
+    ]
+    const { data: auditUsers } = await fetchUserAuditProfiles(auditUserIds)
+
+    setUsersById(
+      Object.fromEntries((auditUsers ?? []).map((user) => [user.user_id, user]))
+    )
+    setSales(nextSales)
     setExpenses((expensesData ?? []) as Expense[])
-    setVoidedSales((voidedSalesData ?? []) as Sale[])
+    setVoidedSales(nextVoidedSales)
     setVoidedExpenses((voidedExpensesData ?? []) as Expense[])
     setProducts((productData ?? []) as Product[])
     setLoading(false)
@@ -202,18 +218,9 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
       return
     }
 
-    setSales((current) => current.filter((item) => item.id !== sale.id))
-    setVoidedSales((current) => [
-      {
-        ...sale,
-        eliminado: true,
-        eliminado_motivo: reason,
-        eliminado_at: new Date().toISOString()
-      },
-      ...current
-    ])
     setVoidingSale(null)
     setNotice(`${saleLabel(sale.folio_diario, sale.fecha_dia)} anulada. Ya no influye en este reporte.`)
+    await loadReports()
   }
 
   async function handleVoidExpense(reason: string) {
@@ -431,7 +438,8 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
                 <article className="history-row" key={sale.id}>
                   <div className="history-meta">
                     <span className="badge active">{saleLabel(sale.folio_diario, sale.fecha_dia)}</span>
-                  <span>{formatDateTime(sale.fecha)}</span>
+                    <span>{formatDateTime(sale.fecha)}</span>
+                    <span>Vendido por {formatAuditUser(usersById[sale.user_id])}</span>
                   </div>
                   <div className="total-line">
                     <strong>{formatCurrency(sale.total)}</strong>
@@ -500,10 +508,14 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
                     <span className="badge off">Venta anulada</span>
                     <span>{saleLabel(sale.folio_diario, sale.fecha_dia)}</span>
                     <span>{formatVoidedAt(sale.eliminado_at)}</span>
+                    <span>Anulada por {formatAuditUser(usersById[sale.eliminado_por ?? ""])}</span>
                   </div>
                   <div className="total-line">
                     <strong>{formatCurrency(sale.total)}</strong>
-                    <span className="muted">{sale.eliminado_motivo ?? "Sin motivo registrado"}</span>
+                    <span className="muted">
+                      Vendida por {formatAuditUser(usersById[sale.user_id])} -{" "}
+                      {sale.eliminado_motivo ?? "Sin motivo registrado"}
+                    </span>
                   </div>
                   <button
                     className="button subtle"
@@ -658,4 +670,9 @@ function formatDateForReport(dateKey: string) {
 function formatVoidedAt(value: string | null) {
   if (!value) return "Sin fecha de anulacion"
   return formatDateTime(value)
+}
+
+function formatAuditUser(user?: UserAuditProfile) {
+  if (!user) return "usuario no disponible"
+  return user.nombre?.trim() || user.email || "usuario sin nombre"
 }

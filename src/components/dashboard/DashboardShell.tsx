@@ -241,11 +241,23 @@ export function DashboardShell() {
         restaurantId={restaurantId}
         refreshSignal={refreshSignal}
         cartOpenSignal={cartOpenSignal}
+        sellerName={profile?.nombre?.trim() || sessionLabel}
         onCartStateChange={setMobileCartState}
         onSaleCompleted={handleDataChanged}
       />
     )
-  }, [activeModule, canAccessAdmin, cartOpenSignal, handleDataChanged, modules, profile?.rol, refreshSignal, restaurantId])
+  }, [
+    activeModule,
+    canAccessAdmin,
+    cartOpenSignal,
+    handleDataChanged,
+    modules,
+    profile?.nombre,
+    profile?.rol,
+    refreshSignal,
+    restaurantId,
+    sessionLabel
+  ])
 
   const openMobileCart = () => {
     setSessionMenuOpen(false)

@@ -731,7 +731,15 @@ drop policy if exists "Usuarios leen su perfil" on public.usuarios;
 create policy "Usuarios leen su perfil"
 on public.usuarios for select
 to authenticated
-using (auth.uid() = user_id or public.is_super_admin());
+using (
+  auth.uid() = user_id
+  or public.is_super_admin()
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
 
 drop policy if exists "Usuarios actualizan su perfil" on public.usuarios;
 create policy "Usuarios actualizan su perfil"

@@ -6,6 +6,7 @@ import type {
   SubscriptionLevel,
   SubscriptionPlan,
   SubscriptionPlanPayload,
+  UserAuditProfile,
   UserProfile
 } from "@/types/app"
 
@@ -46,6 +47,20 @@ export async function fetchCurrentUserProfile(): Promise<DataResponse<UserProfil
 
 export function fetchRestaurants() {
   return supabase.from("restaurantes").select("*").order("created_at", { ascending: false })
+}
+
+export function fetchUserAuditProfiles(userIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)))
+
+  if (uniqueUserIds.length === 0) {
+    return Promise.resolve({ data: [] as UserAuditProfile[], error: null })
+  }
+
+  return supabase
+    .from("usuarios")
+    .select("user_id, email, nombre, rol")
+    .in("user_id", uniqueUserIds)
+    .returns<UserAuditProfile[]>()
 }
 
 export const defaultSubscriptionPlans: SubscriptionPlan[] = [
