@@ -790,7 +790,7 @@ function ReportExportModal({
   onConfirm: () => void
 }) {
   const sectionOptions: { id: ReportExportSection; label: string; description: string }[] = [
-    { id: "summary", label: "Resumen", description: "Metricas principales del rango." },
+    { id: "summary", label: "Resumen neto", description: "Balance del periodo del informe." },
     { id: "sales", label: "Ventas", description: "Historial y totales de ventas." },
     { id: "expenses", label: "Egresos", description: "Gastos registrados en el filtro." },
     { id: "inventory", label: "Inventario", description: "Productos, stock y estado." },
