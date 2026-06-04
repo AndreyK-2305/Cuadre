@@ -54,6 +54,13 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
       return
     }
 
+    if (!profile.activo) {
+      await supabase.auth.signOut()
+      setCheckingSession(false)
+      setError("Correo no activado.")
+      return
+    }
+
     if (!profile.restaurante_id) {
       await supabase.auth.signOut()
       setCheckingSession(false)

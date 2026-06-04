@@ -1,4 +1,6 @@
-export type UserRole = "SuperAdministrador" | "Administrador"
+export type UserRole = "SuperAdministrador" | "Administrador" | "Gerente" | "Empleado"
+
+export type OperationalUserRole = "Gerente" | "Empleado"
 
 export type SubscriptionLevel = "Gratis" | "Basico" | "Completo" | "Emprendedor"
 
@@ -54,7 +56,34 @@ export type UserProfile = {
   nombre: string | null
   rol: UserRole
   restaurante_id: string | null
+  activo: boolean
   restaurante?: Restaurant | null
+}
+
+export type UserAuditProfile = Pick<UserProfile, "user_id" | "email" | "nombre" | "rol">
+
+export type EmployeeUser = {
+  user_id: string
+  email: string
+  nombre: string | null
+  rol: OperationalUserRole
+  restaurante_id: string
+  activo: boolean
+  created_at: string
+}
+
+export type EmployeeCreatePayload = {
+  restaurante_id?: string
+  email: string
+  nombre: string
+  rol: OperationalUserRole
+}
+
+export type EmployeeUpdatePayload = {
+  user_id: string
+  nombre?: string
+  activo?: boolean
+  rol?: OperationalUserRole
 }
 
 export type Product = {
@@ -124,6 +153,7 @@ export type SaleItem = {
 export type Sale = {
   id: string
   restaurante_id: string
+  user_id: string
   folio_diario: number
   fecha: string
   fecha_dia: string

@@ -25,10 +25,11 @@ import type { InventoryMovementType, Product } from "@/types/app"
 
 type InventoryModuleProps = {
   restaurantId: string
+  readOnly?: boolean
   onChanged: () => void
 }
 
-export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProps) {
+export function InventoryModule({ restaurantId, readOnly = false, onChanged }: InventoryModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -90,6 +91,8 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
   }
 
   function openCreateModal() {
+    if (readOnly) return
+
     setError("")
     setNotice("")
     setForm(emptyProductForm)
@@ -98,6 +101,8 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
   }
 
   function editProduct(product: Product) {
+    if (readOnly) return
+
     setError("")
     setNotice("")
     setEditingId(product.id)
@@ -137,6 +142,12 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (readOnly) {
+      setError("Tu usuario solo puede consultar inventario.")
+      return
+    }
+
     setSaving(true)
     setError("")
     setNotice("")
@@ -213,6 +224,11 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
   }
 
   async function handleAddStock(product: Product) {
+    if (readOnly) {
+      setError("Tu usuario solo puede consultar inventario.")
+      return
+    }
+
     const amount = Number(stockInputs[product.id] ?? 0)
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Ingresa una cantidad mayor a cero para sumar stock.")
@@ -249,6 +265,11 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
   }
 
   async function handleToggleProduct(product: Product) {
+    if (readOnly) {
+      setError("Tu usuario solo puede consultar inventario.")
+      return
+    }
+
     setError("")
     setNotice("")
 
@@ -301,10 +322,17 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
             />
           </div>
         </div>
-        <button className="button primary" type="button" onClick={openCreateModal}>
-          <Plus size={18} />
-          Agregar
-        </button>
+        {readOnly ? (
+          <div className="inventory-readonly-note">
+            <strong>Solo consulta</strong>
+            <span>El administrador del negocio gestiona cambios de inventario.</span>
+          </div>
+        ) : (
+          <button className="button primary" type="button" onClick={openCreateModal}>
+            <Plus size={18} />
+            Agregar
+          </button>
+        )}
       </section>
 
       {loading && <div className="panel empty-state">Cargando productos e inventario...</div>}
@@ -325,6 +353,7 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
             onAddStock={handleAddStock}
             onEdit={editProduct}
             onToggle={handleToggleProduct}
+            readOnly={readOnly}
           />
 
           <ProductColumn
@@ -333,6 +362,7 @@ export function InventoryModule({ restaurantId, onChanged }: InventoryModuleProp
             items={saleProducts}
             onEdit={editProduct}
             onToggle={handleToggleProduct}
+            readOnly={readOnly}
           />
         </div>
       )}
@@ -359,7 +389,8 @@ function InventoryColumn({
   onStockInputChange,
   onAddStock,
   onEdit,
-  onToggle
+  onToggle,
+  readOnly
 }: {
   title: string
   emptyText: string
@@ -369,6 +400,7 @@ function InventoryColumn({
   onAddStock: (product: Product) => void
   onEdit: (product: Product) => void
   onToggle: (product: Product) => void
+  readOnly: boolean
 }) {
   return (
     <section className="panel product-list">
@@ -389,36 +421,40 @@ function InventoryColumn({
                 Stock: <strong>{item.cantidad_stock}</strong> {item.tipo_unidad}
               </span>
             </div>
-            <div className="actions-row">
-              <button className="button subtle" type="button" onClick={() => onEdit(item)}>
-                <Edit3 size={16} />
-                Editar
-              </button>
-              <button
-                className={`button ${item.activo ? "warn" : "mint"}`}
-                type="button"
-                onClick={() => onToggle(item)}
-              >
-                <Power size={16} />
-                {item.activo ? "Suspender" : "Habilitar"}
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="actions-row">
+                <button className="button subtle" type="button" onClick={() => onEdit(item)}>
+                  <Edit3 size={16} />
+                  Editar
+                </button>
+                <button
+                  className={`button ${item.activo ? "warn" : "mint"}`}
+                  type="button"
+                  onClick={() => onToggle(item)}
+                >
+                  <Power size={16} />
+                  {item.activo ? "Suspender" : "Habilitar"}
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="stock-controls">
-            <input
-              aria-label={`Cantidad para sumar a ${item.nombre}`}
-              type="number"
-              min="1"
-              step="1"
-              value={stockInputs[item.id] ?? ""}
-              onChange={(event) => onStockInputChange(item.id, event.target.value)}
-              placeholder="+ cant."
-            />
-            <button className="button mint icon" type="button" onClick={() => onAddStock(item)}>
-              <Plus size={18} />
-            </button>
-          </div>
+          {!readOnly && (
+            <div className="stock-controls">
+              <input
+                aria-label={`Cantidad para sumar a ${item.nombre}`}
+                type="number"
+                min="1"
+                step="1"
+                value={stockInputs[item.id] ?? ""}
+                onChange={(event) => onStockInputChange(item.id, event.target.value)}
+                placeholder="+ cant."
+              />
+              <button className="button mint icon" type="button" onClick={() => onAddStock(item)}>
+                <Plus size={18} />
+              </button>
+            </div>
+          )}
         </article>
       ))}
     </section>
@@ -430,13 +466,15 @@ function ProductColumn({
   emptyText,
   items,
   onEdit,
-  onToggle
+  onToggle,
+  readOnly
 }: {
   title: string
   emptyText: string
   items: Product[]
   onEdit: (product: Product) => void
   onToggle: (product: Product) => void
+  readOnly: boolean
 }) {
   return (
     <section className="panel product-list">
@@ -456,20 +494,22 @@ function ProductColumn({
               <span>{formatCurrency(item.precio)}</span>
               <span>{item.tipo_unidad}</span>
             </div>
-            <div className="actions-row">
-              <button className="button subtle" type="button" onClick={() => onEdit(item)}>
-                <Edit3 size={16} />
-                Editar
-              </button>
-              <button
-                className={`button ${item.activo ? "warn" : "mint"}`}
-                type="button"
-                onClick={() => onToggle(item)}
-              >
-                <Power size={16} />
-                {item.activo ? "Suspender" : "Habilitar"}
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="actions-row">
+                <button className="button subtle" type="button" onClick={() => onEdit(item)}>
+                  <Edit3 size={16} />
+                  Editar
+                </button>
+                <button
+                  className={`button ${item.activo ? "warn" : "mint"}`}
+                  type="button"
+                  onClick={() => onToggle(item)}
+                >
+                  <Power size={16} />
+                  {item.activo ? "Suspender" : "Habilitar"}
+                </button>
+              </div>
+            )}
           </div>
         </article>
       ))}

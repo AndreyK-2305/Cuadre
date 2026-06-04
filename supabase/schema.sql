@@ -18,8 +18,9 @@ create table if not exists public.usuarios (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   nombre text,
-  rol text not null default 'Administrador' check (rol in ('SuperAdministrador', 'Administrador')),
+  rol text not null default 'Administrador' check (rol in ('SuperAdministrador', 'Administrador', 'Gerente', 'Empleado')),
   restaurante_id uuid references public.restaurantes(id) on delete set null,
+  activo boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -62,7 +63,8 @@ create table if not exists public.avisos_lecturas (
 
 alter table public.usuarios
 add column if not exists rol text not null default 'Administrador',
-add column if not exists restaurante_id uuid references public.restaurantes(id) on delete set null;
+add column if not exists restaurante_id uuid references public.restaurantes(id) on delete set null,
+add column if not exists activo boolean not null default true;
 
 create table if not exists public.productos (
   id uuid primary key default gen_random_uuid(),
@@ -146,15 +148,11 @@ add column if not exists eliminado_por uuid references auth.users(id) on delete 
 
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'usuarios_rol_check'
-      and conrelid = 'public.usuarios'::regclass
-  ) then
-    alter table public.usuarios
-    add constraint usuarios_rol_check check (rol in ('SuperAdministrador', 'Administrador'));
-  end if;
+  alter table public.usuarios
+  drop constraint if exists usuarios_rol_check;
+
+  alter table public.usuarios
+  add constraint usuarios_rol_check check (rol in ('SuperAdministrador', 'Administrador', 'Gerente', 'Empleado'));
 
   if not exists (
     select 1
@@ -263,6 +261,8 @@ create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(ven
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 create index if not exists idx_restaurantes_admin_email on public.restaurantes(lower(admin_email));
 create index if not exists idx_usuarios_restaurante on public.usuarios(restaurante_id);
+drop index if exists idx_usuarios_empleados_restaurante;
+create index idx_usuarios_empleados_restaurante on public.usuarios(restaurante_id, activo) where rol in ('Empleado', 'Gerente');
 create index if not exists idx_avisos_admin_activo on public.avisos_admin(activo, created_at desc);
 create index if not exists idx_avisos_lecturas_user on public.avisos_lecturas(user_id, aviso_id);
 
@@ -316,6 +316,30 @@ security definer
 set search_path = public
 as $$
   select coalesce(public.current_user_role() = 'SuperAdministrador', false)
+$$;
+
+create or replace function public.current_user_is_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select usuarios.activo
+    from public.usuarios
+    where usuarios.user_id = auth.uid()
+  ), false)
+$$;
+
+create or replace function public.current_user_is_employee()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.current_user_role() = 'Empleado', false)
 $$;
 
 create or replace function public.current_restaurant_id()
@@ -413,7 +437,7 @@ begin
     raise exception 'El restaurante de la venta es obligatorio';
   end if;
 
-  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+  if not public.is_super_admin() and (not public.current_user_is_active() or not public.current_restaurant_is_active()) then
     raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
@@ -554,7 +578,7 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
-  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+  if not public.is_super_admin() and (not public.current_user_is_active() or not public.current_restaurant_is_active()) then
     raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
@@ -566,6 +590,7 @@ begin
     eliminado_por = v_user
   where id = p_venta_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
+    and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
     and eliminado = false;
 
   if not found then
@@ -598,7 +623,7 @@ begin
     raise exception 'El motivo de anulacion es obligatorio';
   end if;
 
-  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+  if not public.is_super_admin() and (not public.current_user_is_active() or not public.current_restaurant_is_active()) then
     raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
@@ -610,6 +635,7 @@ begin
     eliminado_por = v_user
   where id = p_egreso_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
+    and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
     and eliminado = false;
 
   if not found then
@@ -636,7 +662,7 @@ begin
     raise exception 'Debes iniciar sesion para restaurar ventas';
   end if;
 
-  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+  if not public.is_super_admin() and (not public.current_user_is_active() or not public.current_restaurant_is_active()) then
     raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
@@ -644,6 +670,7 @@ begin
   set eliminado = false
   where id = p_venta_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
+    and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
     and eliminado = true;
 
   if not found then
@@ -670,7 +697,7 @@ begin
     raise exception 'Debes iniciar sesion para restaurar egresos';
   end if;
 
-  if not public.is_super_admin() and not public.current_restaurant_is_active() then
+  if not public.is_super_admin() and (not public.current_user_is_active() or not public.current_restaurant_is_active()) then
     raise exception 'El acceso de este emprendimiento esta suspendido';
   end if;
 
@@ -678,6 +705,7 @@ begin
   set eliminado = false
   where id = p_egreso_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
+    and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
     and eliminado = true;
 
   if not found then
@@ -703,7 +731,15 @@ drop policy if exists "Usuarios leen su perfil" on public.usuarios;
 create policy "Usuarios leen su perfil"
 on public.usuarios for select
 to authenticated
-using (auth.uid() = user_id or public.is_super_admin());
+using (
+  auth.uid() = user_id
+  or public.is_super_admin()
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
 
 drop policy if exists "Usuarios actualizan su perfil" on public.usuarios;
 create policy "Usuarios actualizan su perfil"
@@ -753,6 +789,7 @@ using (
   public.is_super_admin()
   or (
     activo = true
+    and public.current_user_is_active()
     and public.current_restaurant_is_active()
     and (
       (
@@ -798,16 +835,40 @@ using (user_id = auth.uid())
 with check (user_id = auth.uid());
 
 drop policy if exists "Autenticados gestionan productos" on public.productos;
-create policy "Autenticados gestionan productos"
+drop policy if exists "Usuarios leen productos" on public.productos;
+create policy "Usuarios leen productos"
+on public.productos for select
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
+
+drop policy if exists "Administradores gestionan productos" on public.productos;
+create policy "Administradores gestionan productos"
 on public.productos for all
 to authenticated
 using (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 )
 with check (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 );
 
 drop policy if exists "Usuarios leen sus ventas" on public.ventas;
@@ -816,7 +877,15 @@ on public.ventas for select
 to authenticated
 using (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+    and (
+      not public.current_user_is_employee()
+      or fecha_dia = ((timezone('America/Bogota', now()))::date)
+    )
+  )
 );
 
 drop policy if exists "Usuarios insertan sus ventas" on public.ventas;
@@ -827,7 +896,11 @@ with check (
   auth.uid() = user_id
   and (
     public.is_super_admin()
-    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+    or (
+      restaurante_id = public.current_restaurant_id()
+      and public.current_user_is_active()
+      and public.current_restaurant_is_active()
+    )
   )
 );
 
@@ -839,7 +912,15 @@ on public.egresos for select
 to authenticated
 using (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+    and (
+      not public.current_user_is_employee()
+      or fecha_dia = ((timezone('America/Bogota', now()))::date)
+    )
+  )
 );
 
 drop policy if exists "Usuarios insertan sus egresos" on public.egresos;
@@ -850,7 +931,15 @@ with check (
   auth.uid() = user_id
   and (
     public.is_super_admin()
-    or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+    or (
+      restaurante_id = public.current_restaurant_id()
+      and public.current_user_is_active()
+      and public.current_restaurant_is_active()
+      and (
+        not public.current_user_is_employee()
+        or fecha_dia = ((timezone('America/Bogota', now()))::date)
+      )
+    )
   )
 );
 
@@ -868,19 +957,53 @@ using (
     from public.ventas
     where ventas.id = detalle_ventas.venta_id
       and (public.is_super_admin() or ventas.restaurante_id = public.current_restaurant_id())
-      and (public.is_super_admin() or public.current_restaurant_is_active())
+      and (
+        public.is_super_admin()
+        or (
+          public.current_user_is_active()
+          and public.current_restaurant_is_active()
+          and (
+            not public.current_user_is_employee()
+            or ventas.fecha_dia = ((timezone('America/Bogota', now()))::date)
+          )
+        )
+      )
   )
 );
 
 drop policy if exists "Autenticados gestionan movimientos" on public.movimientos_inventario;
-create policy "Autenticados gestionan movimientos"
+drop policy if exists "Usuarios leen movimientos" on public.movimientos_inventario;
+create policy "Usuarios leen movimientos"
+on public.movimientos_inventario for select
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
+
+drop policy if exists "Administradores gestionan movimientos" on public.movimientos_inventario;
+create policy "Administradores gestionan movimientos"
 on public.movimientos_inventario for all
 to authenticated
 using (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 )
 with check (
   public.is_super_admin()
-  or (restaurante_id = public.current_restaurant_id() and public.current_restaurant_is_active())
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 );

@@ -34,6 +34,7 @@ type SalesModuleProps = {
   restaurantId: string
   refreshSignal: number
   cartOpenSignal?: number
+  sellerName?: string
   onCartStateChange?: (state: MobileCartState) => void
   onSaleCompleted: () => void
 }
@@ -42,6 +43,7 @@ export function SalesModule({
   restaurantId,
   refreshSignal,
   cartOpenSignal = 0,
+  sellerName = "usuario actual",
   onCartStateChange,
   onSaleCompleted
 }: SalesModuleProps) {
@@ -192,7 +194,7 @@ export function SalesModule({
       {error && <div className="alert">{error}</div>}
       {receipt && (
         <div className="notice">
-          {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por {" "}
+          {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por {sellerName}. Total:{" "}
           {formatCurrency(receipt.total)}. Cambio: {formatCurrency(receipt.cambio)}.
         </div>
       )}
