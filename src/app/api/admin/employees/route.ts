@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js"
+import { getEmployeeLimitLabel, getPlanCapabilities, getPlanDisplayName } from "@/lib/planLimits"
 import type { EmployeeCreatePayload, EmployeeUser, OperationalUserRole, Restaurant, UserProfile } from "@/types/app"
 
 type EmployeeActionBody = {
@@ -124,6 +125,19 @@ export async function PATCH(request: NextRequest) {
 
   if (action === "toggle") {
     patch.activo = Boolean(body?.activo)
+
+    if (patch.activo && !employee.employee.activo) {
+      const restaurant = await fetchRestaurant(authorized.serviceClient, employee.employee.restaurante_id)
+
+      if ("error" in restaurant) {
+        return NextResponse.json({ error: restaurant.error }, { status: 404 })
+      }
+
+      const slotCheck = await ensureEmployeeSlotAvailable(authorized.serviceClient, restaurant.restaurant)
+      if ("error" in slotCheck) {
+        return NextResponse.json({ error: slotCheck.error }, { status: 403 })
+      }
+    }
   } else {
     if (body?.nombre !== undefined) {
       patch.nombre = String(body.nombre).trim()
@@ -298,6 +312,13 @@ async function ensureEmployeeUser(
     return { error: "Este correo ya esta asociado a otro emprendimiento." }
   }
 
+  if (!existingProfile.profile || !existingProfile.profile.activo) {
+    const slotCheck = await ensureEmployeeSlotAvailable(serviceClient, restaurant)
+    if ("error" in slotCheck) {
+      return { error: slotCheck.error }
+    }
+  }
+
   let user = existingProfile.profile
     ? await getAuthUser(serviceClient, existingProfile.profile.user_id)
     : await findAuthUserByEmail(serviceClient, options.email)
@@ -429,6 +450,42 @@ function createAccessMetadata(name: string, passwordPending: boolean) {
     name,
     cuadre_password_pending: passwordPending
   }
+}
+
+async function ensureEmployeeSlotAvailable(
+  serviceClient: SupabaseClient,
+  restaurant: Restaurant
+): Promise<{ ok: true } | { error: string }> {
+  const capabilities = getPlanCapabilities(restaurant.nivel_suscripcion)
+
+  if (capabilities.employeeLimit === null) {
+    return { ok: true }
+  }
+
+  if (capabilities.employeeLimit === 0) {
+    return {
+      error: `El plan ${getPlanDisplayName(restaurant.nivel_suscripcion)} no permite crear empleados o gerentes.`
+    }
+  }
+
+  const { count, error } = await serviceClient
+    .from("usuarios")
+    .select("user_id", { count: "exact", head: true })
+    .eq("restaurante_id", restaurant.id)
+    .eq("activo", true)
+    .in("rol", manageableRoles)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  if ((count ?? 0) >= capabilities.employeeLimit) {
+    return {
+      error: `El plan ${getPlanDisplayName(restaurant.nivel_suscripcion)} permite ${getEmployeeLimitLabel(capabilities.employeeLimit)} operativos.`
+    }
+  }
+
+  return { ok: true }
 }
 
 function normalizeEmail(value: string | null | undefined) {

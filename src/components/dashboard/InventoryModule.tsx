@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { Check, Edit3, Plus, Power, Search } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { getPlanCapabilities, getPlanDisplayName, getProductLimitLabel } from "@/lib/planLimits"
 import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
 import {
   buildProductPayload,
@@ -21,15 +22,21 @@ import {
   updateProductActiveState,
   updateProductStock
 } from "@/lib/data/products"
-import type { InventoryMovementType, Product } from "@/types/app"
+import type { InventoryMovementType, Product, SubscriptionLevel } from "@/types/app"
 
 type InventoryModuleProps = {
   restaurantId: string
+  subscriptionLevel?: SubscriptionLevel | null
   readOnly?: boolean
   onChanged: () => void
 }
 
-export function InventoryModule({ restaurantId, readOnly = false, onChanged }: InventoryModuleProps) {
+export function InventoryModule({
+  restaurantId,
+  subscriptionLevel,
+  readOnly = false,
+  onChanged
+}: InventoryModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -69,6 +76,12 @@ export function InventoryModule({ restaurantId, readOnly = false, onChanged }: I
     () => splitProductsByType(filteredProducts),
     [filteredProducts]
   )
+  const planCapabilities = useMemo(() => getPlanCapabilities(subscriptionLevel), [subscriptionLevel])
+  const productLimitReached =
+    planCapabilities.productLimit !== null && products.length >= planCapabilities.productLimit
+  const productLimitMessage = productLimitReached
+    ? `El plan ${getPlanDisplayName(subscriptionLevel)} permite ${getProductLimitLabel(planCapabilities.productLimit)} entre productos e inventario.`
+    : ""
 
   function updateForm<K extends keyof ProductForm>(key: K, value: ProductForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -92,6 +105,10 @@ export function InventoryModule({ restaurantId, readOnly = false, onChanged }: I
 
   function openCreateModal() {
     if (readOnly) return
+    if (productLimitReached) {
+      setError(productLimitMessage)
+      return
+    }
 
     setError("")
     setNotice("")
@@ -194,6 +211,12 @@ export function InventoryModule({ restaurantId, readOnly = false, onChanged }: I
         replaceProduct(updatedProduct)
         setNotice(getProductSavedNotice(updatedProduct))
       } else {
+        if (productLimitReached) {
+          setError(productLimitMessage)
+          setSaving(false)
+          return
+        }
+
         const { data, error: insertError } = await createProduct(payload, restaurantId)
 
         if (insertError) throw new Error(insertError.message)
@@ -307,6 +330,11 @@ export function InventoryModule({ restaurantId, readOnly = false, onChanged }: I
     <div className="module">
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+      {planCapabilities.productLimit !== null && (
+        <div className={productLimitReached ? "alert" : "notice"}>
+          Plan {getPlanDisplayName(subscriptionLevel)}: {products.length}/{planCapabilities.productLimit} productos usados.
+        </div>
+      )}
 
       <section className="panel inventory-search-panel">
         <div className="field">
@@ -328,7 +356,13 @@ export function InventoryModule({ restaurantId, readOnly = false, onChanged }: I
             <span>El administrador del negocio gestiona cambios de inventario.</span>
           </div>
         ) : (
-          <button className="button primary" type="button" onClick={openCreateModal}>
+          <button
+            className="button primary"
+            type="button"
+            onClick={openCreateModal}
+            disabled={productLimitReached}
+            title={productLimitReached ? productLimitMessage : undefined}
+          >
             <Plus size={18} />
             Agregar
           </button>

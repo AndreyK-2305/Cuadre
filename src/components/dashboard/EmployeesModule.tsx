@@ -10,10 +10,16 @@ import {
   updateEmployee
 } from "@/lib/data/employees"
 import { fetchRestaurants } from "@/lib/data/restaurants"
-import type { EmployeeUser, OperationalUserRole, Restaurant } from "@/types/app"
+import {
+  getEmployeeLimitLabel,
+  getPlanCapabilities,
+  getPlanDisplayName
+} from "@/lib/planLimits"
+import type { EmployeeUser, OperationalUserRole, Restaurant, SubscriptionLevel } from "@/types/app"
 
 type EmployeesModuleProps = {
   restaurantId: string
+  subscriptionLevel?: SubscriptionLevel | null
   isGlobal?: boolean
 }
 
@@ -31,7 +37,7 @@ const emptyForm: EmployeeForm = {
 
 const operationalRoles: OperationalUserRole[] = ["Empleado", "Gerente"]
 
-export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesModuleProps) {
+export function EmployeesModule({ restaurantId, subscriptionLevel, isGlobal = false }: EmployeesModuleProps) {
   const [employees, setEmployees] = useState<EmployeeUser[]>([])
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(restaurantId)
@@ -131,6 +137,17 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
     () => employees.filter((employee) => employee.rol === "Gerente").length,
     [employees]
   )
+  const activePlanLevel = isGlobal ? selectedRestaurant?.nivel_suscripcion : subscriptionLevel
+  const planCapabilities = useMemo(() => getPlanCapabilities(activePlanLevel), [activePlanLevel])
+  const employeeLimit = planCapabilities.employeeLimit
+  const employeesLockedByPlan = employeeLimit === 0
+  const employeeLimitReached = employeeLimit !== null && activeEmployees >= employeeLimit
+  const canCreateEmployee = !employeesLockedByPlan && !employeeLimitReached
+  const employeePlanMessage = employeesLockedByPlan
+    ? `El plan ${getPlanDisplayName(activePlanLevel)} no permite crear empleados o gerentes.`
+    : employeeLimitReached
+      ? `El plan ${getPlanDisplayName(activePlanLevel)} permite ${getEmployeeLimitLabel(employeeLimit)} operativos.`
+      : ""
 
   function updateForm<K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -143,6 +160,13 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
     setNotice("")
 
     const targetRestaurantId = isGlobal ? selectedRestaurantId : restaurantId
+
+    if (!canCreateEmployee) {
+      setError(employeePlanMessage)
+      setSaving(false)
+      return
+    }
+
     const payload = {
       restaurante_id: targetRestaurantId,
       nombre: form.nombre.trim(),
@@ -233,6 +257,12 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
     <div className="module employees-module">
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+      {employeeLimit !== null && (
+        <div className={canCreateEmployee ? "notice" : "alert"}>
+          Plan {getPlanDisplayName(activePlanLevel)}:{" "}
+          {employeeLimit === 0 ? "modulo de empleados no incluido" : `${activeEmployees}/${employeeLimit} usuarios operativos activos`}.
+        </div>
+      )}
 
       {isGlobal && (
         <section className="panel global-report-selector">
@@ -304,10 +334,11 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
               labelledBy="employee-role-label"
               value={form.rol}
               onChange={(role) => updateForm("rol", role)}
+              disabled={!canCreateEmployee}
             />
           </div>
 
-          <button className="button primary" type="submit" disabled={saving}>
+          <button className="button primary" type="submit" disabled={saving || !canCreateEmployee}>
             <UserPlus size={18} aria-hidden="true" />
             {saving ? "Guardando..." : "Registrar usuario"}
           </button>
@@ -317,7 +348,10 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
           <article className="metric">
             <span>Usuarios activos</span>
             <strong>{activeEmployees}</strong>
-            <small>{managerCount} gerente(s) registrados</small>
+            <small>
+              {employeeLimit === null ? "Sin limite de usuarios" : `${employeeLimit} cupos por plan`} -{" "}
+              {managerCount} gerente(s)
+            </small>
           </article>
           <article className="panel admin-recent-card">
             <div className="section-title">
@@ -370,7 +404,7 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
                   labelledBy={`employee-role-${employee.user_id}`}
                   value={employee.rol}
                   onChange={(role) => handleRoleChange(employee, role)}
-                  disabled={updatingId === employee.user_id}
+                  disabled={updatingId === employee.user_id || employeesLockedByPlan}
                   compact
                 />
               </div>
@@ -379,7 +413,7 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
                   className={employee.activo ? "button warn" : "button mint"}
                   type="button"
                   onClick={() => handleToggleEmployee(employee)}
-                  disabled={updatingId === employee.user_id}
+                  disabled={updatingId === employee.user_id || (employee.activo === false && employeeLimitReached)}
                 >
                   <ShieldCheck size={16} aria-hidden="true" />
                   {employee.activo ? "Suspender" : "Habilitar"}

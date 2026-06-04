@@ -19,6 +19,7 @@ import {
   UserRound
 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { getPlanDisplayName } from "@/lib/planLimits"
 import { acknowledgeAnnouncement, fetchPendingAnnouncements } from "@/lib/data/announcements"
 import { defaultSubscriptionPlans, fetchSubscriptionPlans } from "@/lib/data/restaurants"
 import { SalesModule } from "./SalesModule"
@@ -74,6 +75,9 @@ export function DashboardShell() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultSubscriptionPlans)
   const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([])
   const [activeAnnouncement, setActiveAnnouncement] = useState<Announcement | null>(null)
+  const subscriptionLevel = profile?.restaurante?.nivel_suscripcion ?? null
+  const planLabel = canAccessAdmin ? "Vista global" : getPlanDisplayName(subscriptionLevel)
+  const profileName = profile?.nombre?.trim() || businessName
 
   const modules = useMemo(() => {
     if (canAccessAdmin) return superAdminModules
@@ -195,7 +199,7 @@ export function DashboardShell() {
 
   const activeContent = useMemo(() => {
     if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
-      return <ReportsModule refreshSignal={refreshSignal} isGlobal />
+      return <ReportsModule refreshSignal={refreshSignal} isGlobal businessName={businessName} />
     }
 
     if (!restaurantId && profile?.rol !== "SuperAdministrador") {
@@ -225,16 +229,27 @@ export function DashboardShell() {
         <InventoryModule
           restaurantId={restaurantId}
           readOnly={profile?.rol === "Empleado"}
+          subscriptionLevel={subscriptionLevel}
           onChanged={handleDataChanged}
         />
       )
     }
-    if (activeModule === "empleados") return <EmployeesModule restaurantId={restaurantId} isGlobal={canAccessAdmin} />
+    if (activeModule === "empleados") {
+      return <EmployeesModule restaurantId={restaurantId} subscriptionLevel={subscriptionLevel} isGlobal={canAccessAdmin} />
+    }
     if (activeModule === "egresos") {
       return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
     }
     if (activeModule === "reportes") {
-      return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} limitedToToday={profile?.rol === "Empleado"} />
+      return (
+        <ReportsModule
+          refreshSignal={refreshSignal}
+          isGlobal={canAccessAdmin}
+          limitedToToday={profile?.rol === "Empleado"}
+          subscriptionLevel={subscriptionLevel}
+          businessName={businessName}
+        />
+      )
     }
     return (
       <SalesModule
@@ -248,11 +263,13 @@ export function DashboardShell() {
     )
   }, [
     activeModule,
+    businessName,
     canAccessAdmin,
     cartOpenSignal,
     handleDataChanged,
     modules,
     profile?.nombre,
+    subscriptionLevel,
     profile?.rol,
     refreshSignal,
     restaurantId,
@@ -288,6 +305,10 @@ export function DashboardShell() {
         </div>
       </div>
       <p className="session-email" title={sessionLabel}>{sessionLabel}</p>
+      <div className="session-profile-details">
+        <span>{profileName}</span>
+        <strong>{planLabel}</strong>
+      </div>
       <button className="button session-signout" type="button" onClick={handleSignOut} disabled={isSigningOut}>
         <LogOut size={17} aria-hidden="true" />
         {isSigningOut ? "Cerrando sesion..." : "Cerrar sesion"}
@@ -355,8 +376,9 @@ export function DashboardShell() {
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
                 <strong>{businessName}</strong>
-                <span className="sidebar-session-label">Cuenta</span>
+                <span className="sidebar-session-label">{profileName}</span>
                 <small title={sessionLabel}>{sessionLabel}</small>
+                <span className="sidebar-plan-label">{planLabel}</span>
               </div>
               <ChevronDown className="session-trigger-chevron" size={16} aria-hidden="true" />
             </button>

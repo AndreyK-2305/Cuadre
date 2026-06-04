@@ -62,14 +62,12 @@ export function useDashboardSession(options: DashboardSessionOptions = {}) {
       const nextProfile = normalizeProfile(profileData)
 
       if (nextProfile.rol !== "SuperAdministrador" && !nextProfile.activo) {
-        setProfileError("Tu usuario esta deshabilitado. Contacta al administrador del emprendimiento.")
-        setLoading(false)
+        await rejectSession("Tu usuario esta deshabilitado. Contacta al administrador del emprendimiento.")
         return
       }
 
       if (nextProfile.rol !== "SuperAdministrador" && nextProfile.restaurante && !nextProfile.restaurante.activo) {
-        setProfileError("El acceso de este emprendimiento esta suspendido. Contacta al administrador de Cuadre.")
-        setLoading(false)
+        await rejectSession("El acceso de este emprendimiento esta suspendido. Contacta al administrador de Cuadre.")
         return
       }
 
@@ -100,6 +98,18 @@ export function useDashboardSession(options: DashboardSessionOptions = {}) {
     })
 
     void loadSession()
+
+    async function rejectSession(message: string) {
+      await supabase.auth.signOut()
+      if (!mounted) return
+
+      setIsAuthenticated(false)
+      setSessionEmail("")
+      setProfile(null)
+      setProfileError(message)
+      setLoading(false)
+      router.replace(loginPath)
+    }
 
     return () => {
       mounted = false

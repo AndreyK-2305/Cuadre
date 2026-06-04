@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Boxes, Building2, CalendarDays, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
+import { Boxes, Building2, CalendarDays, Download, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
 import {
   formatCurrency,
   formatDateKey,
@@ -17,20 +17,44 @@ import {
   getTopProducts,
   type ReportPreset
 } from "@/lib/dashboard/reports"
+import {
+  downloadReportAsExcel,
+  downloadReportAsPdf,
+  type ReportExportSection
+} from "@/lib/dashboard/reportExport"
+import {
+  clampReportRangeByPlan,
+  getPlanCapabilities,
+  getPlanDisplayName,
+  getReportHistoryLabel,
+  getReportHistoryStartDate,
+  type ReportExportFormat
+} from "@/lib/planLimits"
 import { createExpensesReportQuery, createVoidedExpensesReportQuery, restoreExpense, voidExpense } from "@/lib/data/expenses"
 import { fetchProducts, fetchProductsByRestaurant } from "@/lib/data/products"
 import { fetchRestaurants, fetchUserAuditProfiles } from "@/lib/data/restaurants"
 import { createSalesReportQuery, createVoidedSalesReportQuery, restoreSale, voidSale } from "@/lib/data/sales"
+import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
 import { VoidReasonModal } from "@/components/ui/VoidReasonModal"
-import type { Expense, Product, Restaurant, Sale, SaleItem, UserAuditProfile } from "@/types/app"
+import type { Expense, Product, Restaurant, Sale, SaleItem, SubscriptionLevel, UserAuditProfile } from "@/types/app"
 
 type ReportsModuleProps = {
   isGlobal?: boolean
   limitedToToday?: boolean
+  subscriptionLevel?: SubscriptionLevel | null
+  businessName?: string
   refreshSignal: number
 }
 
-export function ReportsModule({ isGlobal = false, limitedToToday = false, refreshSignal }: ReportsModuleProps) {
+const defaultExportSections: ReportExportSection[] = ["summary", "sales", "expenses"]
+
+export function ReportsModule({
+  isGlobal = false,
+  limitedToToday = false,
+  subscriptionLevel,
+  businessName = "Cuadre",
+  refreshSignal
+}: ReportsModuleProps) {
   const today = formatDateKey()
   const lastSevenDays = getDateDaysAgo(6)
   const currentMonth = getCurrentMonthPrefix()
@@ -50,11 +74,39 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
   const [voidingExpense, setVoidingExpense] = useState<Expense | null>(null)
   const [savingVoid, setSavingVoid] = useState(false)
   const [restoringId, setRestoringId] = useState("")
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<ReportExportFormat>("pdf")
+  const [exportSections, setExportSections] = useState<ReportExportSection[]>(defaultExportSections)
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
   const [activePreset, setActivePreset] = useState<ReportPreset>("today")
-  const reportDateFrom = limitedToToday ? today : dateFrom
-  const reportDateTo = limitedToToday ? today : dateTo
+  const selectedRestaurant = useMemo(
+    () => restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
+    [restaurants, selectedRestaurantId]
+  )
+  const activePlanLevel = isGlobal ? selectedRestaurant?.nivel_suscripcion : subscriptionLevel
+  const planCapabilities = useMemo(() => getPlanCapabilities(activePlanLevel), [activePlanLevel])
+  const forcedToday = limitedToToday || planCapabilities.reportTodayOnly
+  const effectiveReportCapabilities = useMemo(
+    () => forcedToday ? { ...planCapabilities, reportTodayOnly: true, reportHistoryDays: null } : planCapabilities,
+    [forcedToday, planCapabilities]
+  )
+  const reportRange = useMemo(
+    () =>
+      clampReportRangeByPlan({
+        capabilities: effectiveReportCapabilities,
+        today,
+        dateFrom,
+        dateTo
+      }),
+    [dateFrom, dateTo, effectiveReportCapabilities, today]
+  )
+  const reportDateFrom = reportRange.dateFrom
+  const reportDateTo = reportRange.dateTo
+  const exportFormats = planCapabilities.exportFormats
+  const canExportReports = exportFormats.length > 0
+  const selectedReportBusinessName = selectedRestaurant?.nombre ?? businessName
+  const activePlanName = getPlanDisplayName(activePlanLevel)
 
   useEffect(() => {
     if (!isGlobal) return
@@ -166,15 +218,15 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
     void loadReports()
   }, [loadReports, refreshSignal])
 
+  useEffect(() => {
+    setExportFormat((current) => exportFormats.includes(current) ? current : exportFormats[0] ?? "pdf")
+  }, [exportFormats])
+
   const metrics = useMemo(
     () => buildReportMetrics(sales, expenses, reportDateFrom, reportDateTo),
     [expenses, reportDateFrom, reportDateTo, sales]
   )
   const topProducts = useMemo(() => getTopProducts(sales), [sales])
-  const selectedRestaurant = useMemo(
-    () => restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) ?? null,
-    [restaurants, selectedRestaurantId]
-  )
   const { inventoryItems, saleProducts, inventoryTotal, suspendedProducts } = useMemo(
     () => getInventorySnapshot(products),
     [products]
@@ -182,6 +234,18 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
 
   function setPreset(preset: ReportPreset) {
     setActivePreset(preset)
+
+    if (forcedToday) {
+      setDateFrom(today)
+      setDateTo(today)
+      return
+    }
+
+    if (preset === "all" && planCapabilities.reportHistoryDays) {
+      setDateFrom(getReportHistoryStartDate(today, planCapabilities.reportHistoryDays))
+      setDateTo(today)
+      return
+    }
 
     const nextRange = getPresetDateRange(preset, { today, lastSevenDays, currentMonth })
     if (nextRange) {
@@ -293,6 +357,41 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
     setNotice(`Egreso restaurado: ${expense.descripcion}. Vuelve a influir en el reporte.`)
   }
 
+  function handleExportReport() {
+    if (!canExportReports || exportSections.length === 0) return
+
+    const payload = {
+      businessName: selectedReportBusinessName,
+      planName: activePlanName,
+      dateFrom: reportDateFrom,
+      dateTo: reportDateTo,
+      metrics,
+      sales,
+      expenses,
+      voidedSales,
+      voidedExpenses,
+      products,
+      sections: exportSections
+    }
+
+    if (exportFormat === "excel") {
+      downloadReportAsExcel(payload)
+    } else {
+      downloadReportAsPdf(payload)
+    }
+
+    setIsExportOpen(false)
+    setNotice(`Reporte preparado en ${exportFormat === "excel" ? "Excel" : "PDF"}.`)
+  }
+
+  function toggleExportSection(section: ReportExportSection) {
+    setExportSections((current) =>
+      current.includes(section)
+        ? current.filter((item) => item !== section)
+        : [...current, section]
+    )
+  }
+
   return (
     <div className="module">
       {error && <div className="alert">{error}</div>}
@@ -338,8 +437,12 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
           <div>
             <h2>{isGlobal ? "Filtro global" : "Filtro de ventas"}</h2>
             <p>
-              {limitedToToday
-                ? "Tu usuario de empleado solo consulta ventas y egresos del dia actual."
+              {forcedToday
+                ? planCapabilities.reportTodayOnly
+                  ? `Plan ${activePlanName}: solo consulta ventas y egresos del dia actual.`
+                  : "Tu usuario de empleado solo consulta ventas y egresos del dia actual."
+                : effectiveReportCapabilities.reportHistoryDays
+                ? `Plan ${activePlanName}: ${getReportHistoryLabel(effectiveReportCapabilities)}.`
                 : isGlobal
                 ? "Consulta la operacion consolidada por dia, semana, mes o historial completo."
                 : "Consulta ventas y egresos por dia, semana, mes o historial completo."}
@@ -347,11 +450,11 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
           </div>
         </div>
 
-        {limitedToToday ? (
+        {forcedToday ? (
           <div className="metric report-day-lock">
             <span>Periodo permitido</span>
             <strong>{formatDateForReport(today)}</strong>
-            <small>Acceso operativo diario</small>
+            <small>{planCapabilities.reportTodayOnly ? `Plan ${activePlanName}` : "Acceso operativo diario"}</small>
           </div>
         ) : (
           <div className="filter-grid">
@@ -401,12 +504,27 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
                 className={`button subtle ${activePreset === "all" ? "active" : ""}`}
                 type="button"
                 onClick={() => setPreset("all")}
+                disabled={Boolean(effectiveReportCapabilities.reportHistoryDays)}
+                title={effectiveReportCapabilities.reportHistoryDays ? "Tu plan limita el historial a 3 meses." : undefined}
               >
                 Todo
               </button>
             </div>
           </div>
         )}
+
+        <div className="report-plan-row">
+          <span className="badge active">Plan {activePlanName}</span>
+          <span>{getReportHistoryLabel(effectiveReportCapabilities)}</span>
+          {canExportReports ? (
+            <button className="button mint" type="button" onClick={() => setIsExportOpen(true)} disabled={loading}>
+              <Download size={17} aria-hidden="true" />
+              Exportar reporte
+            </button>
+          ) : (
+            <span className="muted">Descargas no incluidas en este plan.</span>
+          )}
+        </div>
       </section>
 
       {loading && <div className="panel empty-state">Cargando reportes...</div>}
@@ -638,7 +756,102 @@ export function ReportsModule({ isGlobal = false, limitedToToday = false, refres
           onConfirm={handleVoidExpense}
         />
       )}
+
+      {isExportOpen && (
+        <ReportExportModal
+          format={exportFormat}
+          formats={exportFormats}
+          sections={exportSections}
+          onFormatChange={setExportFormat}
+          onToggleSection={toggleExportSection}
+          onClose={() => setIsExportOpen(false)}
+          onConfirm={handleExportReport}
+        />
+      )}
     </div>
+  )
+}
+
+function ReportExportModal({
+  format,
+  formats,
+  sections,
+  onFormatChange,
+  onToggleSection,
+  onClose,
+  onConfirm
+}: {
+  format: ReportExportFormat
+  formats: ReportExportFormat[]
+  sections: ReportExportSection[]
+  onFormatChange: (format: ReportExportFormat) => void
+  onToggleSection: (section: ReportExportSection) => void
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  const sectionOptions: { id: ReportExportSection; label: string; description: string }[] = [
+    { id: "summary", label: "Resumen", description: "Metricas principales del rango." },
+    { id: "sales", label: "Ventas", description: "Historial y totales de ventas." },
+    { id: "expenses", label: "Egresos", description: "Gastos registrados en el filtro." },
+    { id: "inventory", label: "Inventario", description: "Productos, stock y estado." },
+    { id: "voided", label: "Anulaciones", description: "Ventas y egresos anulados." }
+  ]
+
+  return (
+    <ModalBackdrop>
+      <section className="modal-panel form-grid report-export-modal">
+        <ModalHeader
+          title="Exportar reporte"
+          description="Confirma que informacion quieres incluir en la descarga."
+          onClose={onClose}
+        />
+
+        {formats.length > 1 && (
+          <div className="role-selector report-format-selector" role="radiogroup" aria-label="Formato de descarga">
+            {formats.map((item) => (
+              <button
+                key={item}
+                className={format === item ? "role-option active" : "role-option"}
+                type="button"
+                role="radio"
+                aria-checked={format === item}
+                onClick={() => onFormatChange(item)}
+              >
+                <span>
+                  <strong>{item === "excel" ? "Excel" : "PDF"}</strong>
+                  <small>{item === "excel" ? "Tablas para analizar" : "Resumen imprimible"}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {formats.length === 1 && (
+          <div className="notice">Tu plan permite descargar este reporte en {formats[0] === "pdf" ? "PDF" : "Excel"}.</div>
+        )}
+
+        <div className="export-section-list">
+          {sectionOptions.map((section) => (
+            <label className="check-row" key={section.id}>
+              <input
+                type="checkbox"
+                checked={sections.includes(section.id)}
+                onChange={() => onToggleSection(section.id)}
+              />
+              <span>
+                <strong>{section.label}</strong>
+                <small>{section.description}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <button className="button primary" type="button" onClick={onConfirm} disabled={sections.length === 0}>
+          <Download size={18} aria-hidden="true" />
+          Descargar reporte
+        </button>
+      </section>
+    </ModalBackdrop>
   )
 }
 
