@@ -7,6 +7,8 @@ type PasswordBody = {
   password?: string
 }
 
+type AccessState = "authorized" | "inactive" | "not_registered"
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -18,24 +20,44 @@ export async function GET(request: NextRequest) {
   const email = normalizeEmail(request.nextUrl.searchParams.get("email"))
 
   if (!email) {
-    return NextResponse.json({ isAuthorized: false, passwordPending: false })
+    return NextResponse.json({ isAuthorized: false, passwordPending: false, accessState: "not_registered" satisfies AccessState })
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceClient.client
+    .from("restaurantes")
+    .select("*")
+    .ilike("admin_email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<Restaurant>()
+
+  if (restaurantError) {
+    return NextResponse.json({ isAuthorized: false, passwordPending: false, accessState: "inactive" satisfies AccessState })
+  }
+
+  if (!restaurant) {
+    return NextResponse.json({ isAuthorized: false, passwordPending: false, accessState: "not_registered" satisfies AccessState })
+  }
+
+  if (!restaurant.activo) {
+    return NextResponse.json({ isAuthorized: false, passwordPending: false, accessState: "inactive" satisfies AccessState })
   }
 
   const account = await findAuthorizedAccount(serviceClient.client, email)
 
-  if ("error" in account) {
-    return NextResponse.json({ isAuthorized: false, passwordPending: false })
-  }
-
-  if (!account.restaurant) {
-    return NextResponse.json({ isAuthorized: false, passwordPending: false })
+  if ("error" in account || !account.restaurant) {
+    return NextResponse.json({ isAuthorized: false, passwordPending: false, accessState: "inactive" satisfies AccessState })
   }
 
   if (!account.user) {
-    return NextResponse.json({ isAuthorized: true, passwordPending: true })
+    return NextResponse.json({ isAuthorized: true, passwordPending: true, accessState: "authorized" satisfies AccessState })
   }
 
-  return NextResponse.json({ isAuthorized: true, passwordPending: isPasswordPending(account.user) })
+  return NextResponse.json({
+    isAuthorized: true,
+    passwordPending: isPasswordPending(account.user),
+    accessState: "authorized" satisfies AccessState
+  })
 }
 
 export async function POST(request: NextRequest) {
