@@ -181,6 +181,35 @@
   will-change: transform, filter, opacity, clip-path;
 }
 
+@media (min-width: 981px) {
+  .landing-showcase {
+    padding-top: clamp(28px, 4vw, 44px);
+    padding-bottom: clamp(34px, 5vw, 54px);
+  }
+
+  .landing-showcase-frame {
+    width: min(100%, 720px);
+  }
+
+  .landing-showcase-image-wrap {
+    width: min(100%, 500px);
+    aspect-ratio: 3 / 6.1;
+    filter: drop-shadow(0 34px 42px rgba(22, 34, 31, 0.1));
+  }
+
+  .landing-showcase-image {
+    object-position: center center;
+    filter:
+      blur(calc((1 - var(--reveal-progress)) * 2px))
+      saturate(calc(0.98 + var(--reveal-progress) * 0.02));
+    opacity: calc(0.5 + var(--reveal-progress) * 0.5);
+    transform:
+      translateY(calc((1 - var(--reveal-progress)) * 10px))
+      scale(calc(0.992 + var(--reveal-progress) * 0.008));
+    clip-path: none;
+  }
+}
+
 .landing-intro,
 .landing-plans {
   background: var(--bg);
