@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Boxes, Building2, CalendarDays, Download, Filter, History, RotateCcw, Trash2, TrendingUp } from "lucide-react"
+import { BarChart3, Boxes, Building2, CalendarDays, Download, Filter, History, RotateCcw, Sparkles, Trash2, TrendingUp } from "lucide-react"
 import {
   formatCurrency,
   formatDateKey,
@@ -12,9 +12,13 @@ import {
 } from "@/lib/format"
 import {
   buildReportMetrics,
+  getAverageTicket,
   getInventorySnapshot,
   getPresetDateRange,
+  getProductInsights,
   getTopProducts,
+  getReportTrendPoints,
+  getTopProductInsight,
   type ReportPreset
 } from "@/lib/dashboard/reports"
 import {
@@ -107,6 +111,7 @@ export function ReportsModule({
   const canExportReports = exportFormats.length > 0
   const selectedReportBusinessName = selectedRestaurant?.nombre ?? businessName
   const activePlanName = getPlanDisplayName(activePlanLevel)
+  const showAdvancedInsights = Boolean(planCapabilities.advancedReportInsights)
 
   useEffect(() => {
     if (!isGlobal) return
@@ -222,14 +227,53 @@ export function ReportsModule({
     setExportFormat((current) => exportFormats.includes(current) ? current : exportFormats[0] ?? "pdf")
   }, [exportFormats])
 
+  useEffect(() => {
+    setExportSections((current) => {
+      if (!planCapabilities.advancedReportInsights) {
+        return current.filter((section) => section !== "analytics")
+      }
+
+      return current.includes("analytics") ? current : [...current, "analytics"]
+    })
+  }, [planCapabilities.advancedReportInsights])
+
   const metrics = useMemo(
     () => buildReportMetrics(sales, expenses, reportDateFrom, reportDateTo),
     [expenses, reportDateFrom, reportDateTo, sales]
   )
   const topProducts = useMemo(() => getTopProducts(sales), [sales])
+  const reportTrendPoints = useMemo(
+    () => getReportTrendPoints(sales, expenses, reportDateFrom, reportDateTo),
+    [expenses, reportDateFrom, reportDateTo, sales]
+  )
+  const productInsights = useMemo(() => getProductInsights(sales), [sales])
+  const averageTicket = useMemo(() => getAverageTicket(sales), [sales])
+  const topProductInsight = useMemo(() => getTopProductInsight(sales), [sales])
+  const netResult = useMemo(
+    () => sales.reduce((sum, sale) => sum + sale.total, 0) - expenses.reduce((sum, expense) => sum + expense.valor, 0),
+    [expenses, sales]
+  )
   const { inventoryItems, saleProducts, inventoryTotal, suspendedProducts } = useMemo(
     () => getInventorySnapshot(products),
     [products]
+  )
+  const peakTrendDay = useMemo(
+    () => reportTrendPoints.reduce<ReturnType<typeof getReportTrendPoints>[number] | null>(
+      (best, current) => {
+        if (!best) return current
+        return current.net > best.net ? current : best
+      },
+      null
+    ),
+    [reportTrendPoints]
+  )
+  const trendMaxValue = useMemo(
+    () => Math.max(1, ...reportTrendPoints.map((point) => Math.max(point.sales, point.expenses, Math.abs(point.net)))),
+    [reportTrendPoints]
+  )
+  const productMaxQuantity = useMemo(
+    () => Math.max(1, ...productInsights.map((item) => item.quantity)),
+    [productInsights]
   )
 
   function setPreset(preset: ReportPreset) {
@@ -358,7 +402,11 @@ export function ReportsModule({
   }
 
   function handleExportReport() {
-    if (!canExportReports || exportSections.length === 0) return
+    const exportSectionsForDownload = showAdvancedInsights
+      ? Array.from(new Set([...exportSections, "analytics"]))
+      : exportSections
+
+    if (!canExportReports || exportSectionsForDownload.length === 0) return
 
     const payload = {
       businessName: selectedReportBusinessName,
@@ -371,7 +419,7 @@ export function ReportsModule({
       voidedSales,
       voidedExpenses,
       products,
-      sections: exportSections
+      sections: exportSectionsForDownload
     }
 
     if (exportFormat === "excel") {
@@ -540,6 +588,117 @@ export function ReportsModule({
               </article>
             ))}
           </section>
+
+          {showAdvancedInsights && (
+            <section className="panel advanced-report-panel">
+              <div className="section-title">
+                <h2>
+                  <Sparkles size={18} aria-hidden="true" />
+                  Estadisticas avanzadas
+                </h2>
+                <p>Disponibles en los planes Completo y Emprendedor para lectura y comparacion rapida.</p>
+              </div>
+
+              <div
+                className="advanced-summary-grid"
+                style={{
+                  display: "grid",
+                  gap: "1rem",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))"
+                }}
+              >
+                <article className="metric">
+                  <span>Ticket promedio</span>
+                  <strong>{formatCurrency(averageTicket)}</strong>
+                  <small>{sales.length > 0 ? `${sales.length} ventas en el periodo` : "Sin ventas registradas"}</small>
+                </article>
+                <article className="metric">
+                  <span>Dia mas fuerte</span>
+                  <strong>{peakTrendDay?.label ?? "Sin datos"}</strong>
+                  <small>{peakTrendDay ? `Neto ${formatCurrency(peakTrendDay.net)}` : "Aun no hay tendencia"}</small>
+                </article>
+                <article className="metric">
+                  <span>Producto lider</span>
+                  <strong>{topProductInsight?.name ?? "Sin datos"}</strong>
+                  <small>{topProductInsight ? `${topProductInsight.quantity} unidades vendidas` : "Aun no hay ventas"}</small>
+                </article>
+                <article className="metric">
+                  <span>Balance visual</span>
+                  <strong>{formatCurrency(netResult)}</strong>
+                  <small>Resultado neto resumido del periodo</small>
+                </article>
+              </div>
+
+              <div
+                className="advanced-charts-grid"
+                style={{
+                  display: "grid",
+                  gap: "1rem",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))"
+                }}
+              >
+                <article className="metric">
+                  <span>
+                    <BarChart3 size={16} aria-hidden="true" />
+                    Grafico de tendencia
+                  </span>
+                  <p className="muted">Ventas, egresos y neto por dia del filtro seleccionado.</p>
+                  {reportTrendPoints.length === 0 ? (
+                    <p className="muted">Aparecera cuando existan movimientos en el periodo.</p>
+                  ) : (
+                    <div className="advanced-bars">
+                      {reportTrendPoints.map((point) => (
+                        <div className="advanced-bar-row" key={point.label}>
+                          <div className="advanced-bar-labels">
+                            <strong>{point.label}</strong>
+                            <span>{formatCurrency(point.net)}</span>
+                          </div>
+                          <div className="advanced-bar-track" aria-hidden="true">
+                            <span
+                              className="advanced-bar sales"
+                              style={{ width: `${Math.max(6, (point.sales / trendMaxValue) * 100)}%` }}
+                            />
+                            <span
+                              className="advanced-bar expenses"
+                              style={{ width: `${Math.max(6, (point.expenses / trendMaxValue) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="metric">
+                  <span>
+                    <BarChart3 size={16} aria-hidden="true" />
+                    Grafico de productos
+                  </span>
+                  <p className="muted">Productos con mayor salida dentro del periodo.</p>
+                  {productInsights.length === 0 ? (
+                    <p className="muted">Aparecera cuando existan ventas registradas.</p>
+                  ) : (
+                    <div className="advanced-bars">
+                      {productInsights.slice(0, 6).map((item) => (
+                        <div className="advanced-bar-row" key={item.name}>
+                          <div className="advanced-bar-labels">
+                            <strong>{item.name}</strong>
+                            <span>{item.quantity} unidades</span>
+                          </div>
+                          <div className="advanced-bar-track" aria-hidden="true">
+                            <span
+                              className="advanced-bar product"
+                              style={{ width: `${Math.max(8, (item.quantity / productMaxQuantity) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              </div>
+            </section>
+          )}
 
           <section className="report-grid">
             <div className="history-list">
@@ -761,6 +920,7 @@ export function ReportsModule({
         <ReportExportModal
           format={exportFormat}
           formats={exportFormats}
+          advancedInsightsEnabled={showAdvancedInsights}
           sections={exportSections}
           onFormatChange={setExportFormat}
           onToggleSection={toggleExportSection}
@@ -775,6 +935,7 @@ export function ReportsModule({
 function ReportExportModal({
   format,
   formats,
+  advancedInsightsEnabled,
   sections,
   onFormatChange,
   onToggleSection,
@@ -783,6 +944,7 @@ function ReportExportModal({
 }: {
   format: ReportExportFormat
   formats: ReportExportFormat[]
+  advancedInsightsEnabled: boolean
   sections: ReportExportSection[]
   onFormatChange: (format: ReportExportFormat) => void
   onToggleSection: (section: ReportExportSection) => void
@@ -791,6 +953,9 @@ function ReportExportModal({
 }) {
   const sectionOptions: { id: ReportExportSection; label: string; description: string }[] = [
     { id: "summary", label: "Resumen neto", description: "Balance del periodo del informe." },
+    ...(advancedInsightsEnabled
+      ? [{ id: "analytics" as ReportExportSection, label: "Estadisticas avanzadas", description: "Graficos y lectura visual del periodo." }]
+      : []),
     { id: "sales", label: "Ventas", description: "Historial y totales de ventas." },
     { id: "expenses", label: "Egresos", description: "Gastos registrados en el filtro." },
     { id: "inventory", label: "Inventario", description: "Productos, stock y estado." },

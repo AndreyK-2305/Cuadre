@@ -1,8 +1,16 @@
 import { formatCurrency, formatDateTime, saleLabel } from "@/lib/format"
-import { getRangeLabel, type Metric } from "@/lib/dashboard/reports"
+import {
+  getAverageTicket,
+  getProductInsights,
+  getRangeLabel,
+  getReportTrendPoints,
+  type Metric,
+  type ProductInsight,
+  type ReportTrendPoint
+} from "@/lib/dashboard/reports"
 import type { Expense, Product, Sale, SaleItem } from "@/types/app"
 
-export type ReportExportSection = "summary" | "sales" | "expenses" | "inventory" | "voided"
+export type ReportExportSection = "summary" | "analytics" | "sales" | "expenses" | "inventory" | "voided"
 
 export type ReportExportPayload = {
   businessName: string
@@ -29,6 +37,17 @@ type ReportOverview = {
   voidedExpensesCount: number
   rangeLabel: string
   generatedAt: string
+}
+
+type AnalyticsData = {
+  trendPoints: ReportTrendPoint[]
+  productInsights: ProductInsight[]
+  averageTicket: number
+  peakTrendDay: ReportTrendPoint | null
+  topProduct: ProductInsight | null
+  netResult: number
+  maxTrendValue: number
+  maxProductQuantity: number
 }
 
 type TableSpec = {
@@ -83,12 +102,17 @@ export function downloadReportAsExcel(payload: ReportExportPayload) {
 
 function buildStyledPdfBlob(payload: ReportExportPayload) {
   const overview = buildReportOverview(payload)
+  const analytics = buildAnalyticsData(payload, overview)
   const pages: PdfPage[] = []
   const specs = buildTableSpecs(payload)
   const includeSummary = payload.sections.includes("summary")
 
   if (includeSummary) {
     renderSummaryPage(pages, payload, overview)
+  }
+
+  if (payload.sections.includes("analytics")) {
+    renderAnalyticsPage(pages, payload, overview, analytics)
   }
 
   for (const spec of specs) {
@@ -104,11 +128,14 @@ function buildStyledPdfBlob(payload: ReportExportPayload) {
 
 function buildStyledExcelHtml(payload: ReportExportPayload) {
   const overview = buildReportOverview(payload)
+  const analytics = buildAnalyticsData(payload, overview)
   const specs = buildTableSpecs(payload)
   const includeSummary = payload.sections.includes("summary")
+  const includeAnalytics = payload.sections.includes("analytics")
 
   const summaryCards = includeSummary
     ? `
+      <div class="summary-title">Resumen neto del periodo del informe</div>
       <section class="summary-grid">
         ${summaryCardHtml("Resultado neto", formatSignedCurrency(overview.netResult), "Ventas menos egresos", overview.netResult >= 0 ? "success" : "danger")}
         ${summaryCardHtml("Ventas filtradas", formatCurrency(overview.salesTotal), `${overview.salesCount} ventas registradas`, "primary")}
@@ -121,6 +148,10 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
         <div><strong>Generado:</strong> ${escapeHtml(overview.generatedAt)}</div>
       </section>
     `
+    : ""
+
+  const analyticsSection = includeAnalytics
+    ? analyticsSectionHtml(analytics)
     : ""
 
   const sectionsHtml = specs
@@ -333,6 +364,104 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
           color: var(--text);
         }
 
+        .analytics-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+          margin-top: 16px;
+        }
+
+        .analytics-charts-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+          margin-top: 14px;
+        }
+
+        .analytics-chart {
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 14px;
+          background: linear-gradient(180deg, rgba(247, 250, 252, 0.98), rgba(255, 255, 255, 0.92));
+        }
+
+        .analytics-chart-title {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-bottom: 12px;
+        }
+
+        .analytics-chart-title strong {
+          font-size: 13px;
+          color: var(--text);
+        }
+
+        .analytics-chart-title span {
+          font-size: 11px;
+          color: var(--muted);
+        }
+
+        .chart-row {
+          display: grid;
+          gap: 7px;
+          margin-top: 10px;
+        }
+
+        .chart-row-labels {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 11px;
+          color: var(--muted);
+        }
+
+        .chart-row-labels strong {
+          color: var(--text);
+        }
+
+        .chart-track {
+          position: relative;
+          height: 12px;
+          border-radius: 999px;
+          overflow: hidden;
+          background: #e7edf2;
+          border: 1px solid var(--border);
+        }
+
+        .chart-fill {
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100%;
+          border-radius: inherit;
+        }
+
+        .chart-fill.sales {
+          background: linear-gradient(90deg, var(--primary), #2f89a8);
+        }
+
+        .chart-fill.expenses {
+          top: auto;
+          bottom: 0;
+          height: 50%;
+          background: linear-gradient(90deg, var(--accent), #ddb35c);
+        }
+
+        .chart-fill.product {
+          background: linear-gradient(90deg, var(--success), #48b568);
+        }
+
+        .report-section-analytics .empty-cell {
+          margin-top: 12px;
+          padding: 14px;
+          border-radius: 10px;
+          border: 1px dashed var(--border);
+          color: var(--muted);
+          background: rgba(255, 255, 255, 0.82);
+          text-align: center;
+        }
+
         .report-section {
           margin-top: 26px;
           background: var(--white);
@@ -469,24 +598,9 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
           </p>
         </section>
 
-        ${
-          includeSummary
-            ? `
-          <div class="summary-title">Resumen neto del periodo del informe</div>
-          <section class="summary-grid">
-            ${summaryCardHtml("Resultado neto", formatSignedCurrency(overview.netResult), "Ventas menos egresos del periodo.", overview.netResult >= 0 ? "success" : "danger")}
-            ${summaryCardHtml("Ventas filtradas", formatCurrency(overview.salesTotal), `${overview.salesCount} ventas registradas.`, "primary")}
-            ${summaryCardHtml("Egresos filtrados", formatCurrency(overview.expensesTotal), `${overview.expensesCount} egresos registrados.`, "accent")}
-            ${summaryCardHtml("Productos vendidos", String(overview.unitsSold), "Unidades detalladas en el periodo.", "soft")}
-          </section>
-          <section class="summary-strip">
-            <div><strong>Anulaciones:</strong> ${overview.voidedSalesCount + overview.voidedExpensesCount}</div>
-            <div><strong>Ventas anuladas:</strong> ${overview.voidedSalesCount}</div>
-            <div><strong>Egresos anulados:</strong> ${overview.voidedExpensesCount}</div>
-          </section>
-        `
-            : ""
-        }
+        ${summaryCards}
+
+        ${analyticsSection}
 
         ${sectionsHtml}
       </div>
@@ -515,6 +629,80 @@ function summaryCardHtml(title: string, value: string, caption: string, tone: "p
   `
 }
 
+function analyticsSectionHtml(analytics: AnalyticsData) {
+  const trendRows = analytics.trendPoints.length > 0
+    ? analytics.trendPoints
+        .map(
+          (point) => `
+            <div class="chart-row">
+              <div class="chart-row-labels">
+                <strong>${escapeHtml(point.label)}</strong>
+                <span>${escapeHtml(formatCurrency(point.net))}</span>
+              </div>
+              <div class="chart-track">
+                <span class="chart-fill sales" style="width:${Math.max(8, (point.sales / analytics.maxTrendValue) * 100)}%"></span>
+                <span class="chart-fill expenses" style="width:${Math.max(8, (point.expenses / analytics.maxTrendValue) * 100)}%"></span>
+              </div>
+            </div>
+          `
+        )
+        .join("")
+    : `<div class="empty-cell">Aun no hay movimientos para graficar.</div>`
+
+  const productRows = analytics.productInsights.length > 0
+    ? analytics.productInsights
+        .slice(0, 6)
+        .map(
+          (item) => `
+            <div class="chart-row">
+              <div class="chart-row-labels">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span>${item.quantity} unidades</span>
+              </div>
+              <div class="chart-track">
+                <span class="chart-fill product" style="width:${Math.max(10, (item.quantity / analytics.maxProductQuantity) * 100)}%"></span>
+              </div>
+            </div>
+          `
+        )
+        .join("")
+    : `<div class="empty-cell">Aun no hay ventas para mostrar productos.</div>`
+
+  return `
+    <section class="report-section report-section-analytics">
+      <div class="section-head" style="--accent:${COLORS.accent}">
+        <div>
+          <span class="section-kicker">Analitica avanzada</span>
+          <h2>Estadisticas y graficos de productos</h2>
+          <p>Disponible para planes Completo y Emprendedor. Resume el comportamiento del periodo con indicadores visuales.</p>
+        </div>
+      </div>
+      <div class="analytics-summary-grid">
+        ${summaryCardHtml("Ticket promedio", formatCurrency(analytics.averageTicket), "Promedio por venta registrada.", "primary")}
+        ${summaryCardHtml("Dia mas fuerte", analytics.peakTrendDay?.label ?? "Sin datos", analytics.peakTrendDay ? `Neto ${formatCurrency(analytics.peakTrendDay.net)}` : "Aun no hay tendencia.", "success")}
+        ${summaryCardHtml("Producto lider", analytics.topProduct?.name ?? "Sin datos", analytics.topProduct ? `${analytics.topProduct.quantity} unidades` : "Aun no hay ventas.", "accent")}
+        ${summaryCardHtml("Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? "success" : "danger")}
+      </div>
+      <div class="analytics-charts-grid">
+        <div class="analytics-chart">
+          <div class="analytics-chart-title">
+            <strong>Tendencia por dia</strong>
+            <span>Ventas y egresos del periodo</span>
+          </div>
+          ${trendRows}
+        </div>
+        <div class="analytics-chart">
+          <div class="analytics-chart-title">
+            <strong>Productos con mayor salida</strong>
+            <span>Top de unidades vendidas</span>
+          </div>
+          ${productRows}
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function buildReportOverview(payload: ReportExportPayload): ReportOverview {
   const salesTotal = payload.sales.reduce((sum, sale) => sum + sale.total, 0)
   const expensesTotal = payload.expenses.reduce((sum, expense) => sum + expense.valor, 0)
@@ -535,6 +723,30 @@ function buildReportOverview(payload: ReportExportPayload): ReportOverview {
     voidedExpensesCount: payload.voidedExpenses.length,
     rangeLabel: getRangeLabel(payload.dateFrom, payload.dateTo),
     generatedAt: formatDateTime(new Date().toISOString())
+  }
+}
+
+function buildAnalyticsData(payload: ReportExportPayload, overview: ReportOverview): AnalyticsData {
+  const trendPoints = getReportTrendPoints(payload.sales, payload.expenses, payload.dateFrom, payload.dateTo)
+  const productInsights = getProductInsights(payload.sales)
+  const averageTicket = getAverageTicket(payload.sales)
+  const peakTrendDay = trendPoints.reduce<ReportTrendPoint | null>(
+    (best, current) => {
+      if (!best) return current
+      return current.net > best.net ? current : best
+    },
+    null
+  )
+
+  return {
+    trendPoints,
+    productInsights,
+    averageTicket,
+    peakTrendDay,
+    topProduct: productInsights[0] ?? null,
+    netResult: overview.netResult,
+    maxTrendValue: Math.max(1, ...trendPoints.map((point) => Math.max(point.sales, point.expenses, Math.abs(point.net)))),
+    maxProductQuantity: Math.max(1, ...productInsights.map((item) => item.quantity))
   }
 }
 
@@ -679,6 +891,72 @@ function renderSummaryPage(pages: PdfPage[], payload: ReportExportPayload, overv
   drawFooter(page, pages.length)
 }
 
+function renderAnalyticsPage(
+  pages: PdfPage[],
+  payload: ReportExportPayload,
+  overview: ReportOverview,
+  analytics: AnalyticsData
+) {
+  const page = addPage(pages)
+  drawPageHeader(page, payload, overview, "Estadisticas avanzadas", "Lectura visual del periodo.", COLORS.accent)
+  drawText(page, 42, 652, "Graficos y productos clave", 15, "F2", COLORS.primaryDark)
+  drawText(page, 42, 632, "Disponible en los planes Completo y Emprendedor.", 10.5, "F1", COLORS.muted)
+
+  const cardWidth = (PDF.width - PDF.marginX * 2 - PDF.gutter) / 2
+  const cardHeight = 78
+  const leftX = PDF.marginX
+  const rightX = PDF.marginX + cardWidth + PDF.gutter
+  const firstRowY = 596
+  const secondRowY = 506
+
+  drawAnalyticsCard(page, leftX, firstRowY, cardWidth, cardHeight, "Ticket promedio", formatCurrency(analytics.averageTicket), "Promedio por venta registrada.", COLORS.primary)
+  drawAnalyticsCard(page, rightX, firstRowY, cardWidth, cardHeight, "Dia mas fuerte", analytics.peakTrendDay?.label ?? "Sin datos", analytics.peakTrendDay ? `Neto ${formatCurrency(analytics.peakTrendDay.net)}` : "Aun no hay tendencia.", COLORS.success)
+  drawAnalyticsCard(page, leftX, secondRowY, cardWidth, cardHeight, "Producto lider", analytics.topProduct?.name ?? "Sin datos", analytics.topProduct ? `${analytics.topProduct.quantity} unidades` : "Aun no hay ventas.", COLORS.accent)
+  drawAnalyticsCard(page, rightX, secondRowY, cardWidth, cardHeight, "Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? COLORS.success : COLORS.danger)
+
+  const chartWidth = (PDF.width - PDF.marginX * 2 - PDF.gutter) / 2
+  const chartHeight = 210
+  drawAnalyticsChart(
+    page,
+    leftX,
+    266,
+    chartWidth,
+    chartHeight,
+    "Tendencia por dia",
+    "Ventas y egresos del periodo",
+    analytics.trendPoints.map((point) => ({
+      label: point.label,
+      value: Math.max(point.sales, point.expenses),
+      sales: point.sales,
+      expenses: point.expenses
+    })),
+    analytics.maxTrendValue,
+    COLORS.primary,
+    COLORS.accent,
+    "trend"
+  )
+  drawAnalyticsChart(
+    page,
+    rightX,
+    266,
+    chartWidth,
+    chartHeight,
+    "Productos con mayor salida",
+    "Top de unidades vendidas",
+    analytics.productInsights.slice(0, 6).map((item) => ({
+      label: item.name,
+      value: item.quantity,
+      quantity: item.quantity
+    })),
+    analytics.maxProductQuantity,
+    COLORS.success,
+    COLORS.muted,
+    "products"
+  )
+
+  drawFooter(page, pages.length)
+}
+
 function renderEmptyReportPage(pages: PdfPage[], payload: ReportExportPayload, overview: ReportOverview) {
   const page = addPage(pages)
   drawPageHeader(page, payload, overview, "Resumen neto", "No hay secciones seleccionadas.", COLORS.accent)
@@ -768,6 +1046,80 @@ function drawSummaryCard(
   drawText(page, x + 12, y - 70, caption, 9.5, "F1", COLORS.muted)
 }
 
+function drawAnalyticsCard(
+  page: PdfPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  title: string,
+  value: string,
+  caption: string,
+  accent: string
+) {
+  drawRect(page, x, y - height, width, height, COLORS.white, COLORS.border)
+  drawRect(page, x, y - 4, width, 4, accent)
+  drawText(page, x + 12, y - 20, title, 10, "F2", COLORS.muted)
+  drawText(page, x + 12, y - 38, value, 15, "F2", COLORS.text)
+  drawText(page, x + 12, y - 58, caption, 8.8, "F1", COLORS.muted)
+}
+
+function drawAnalyticsChart(
+  page: PdfPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  title: string,
+  subtitle: string,
+  rows: Array<{
+    label: string
+    value: number
+    sales?: number
+    expenses?: number
+    quantity?: number
+  }>,
+  maxValue: number,
+  primaryColor: string,
+  secondaryColor: string,
+  mode: "trend" | "products"
+) {
+  drawRect(page, x, y - height, width, height, COLORS.white, COLORS.border)
+  drawText(page, x + 12, y - 22, title, 11, "F2", COLORS.primaryDark)
+  drawText(page, x + 12, y - 38, subtitle, 8.8, "F1", COLORS.muted)
+
+  const contentTop = y - 54
+  const rowGap = mode === "trend" ? 28 : 30
+  const rowHeight = mode === "trend" ? 18 : 16
+  const barAreaWidth = width - 40
+  let cursorY = contentTop
+
+  if (rows.length === 0) {
+    drawText(page, x + 12, cursorY - 8, "Aun no hay datos para graficar.", 9.2, "F1", COLORS.muted)
+    return
+  }
+
+  for (const row of rows.slice(0, 6)) {
+    drawText(page, x + 12, cursorY, row.label, 8.8, "F2", COLORS.text)
+    const normalized = Math.max(0.08, row.value / Math.max(1, maxValue))
+    const barWidth = Math.max(14, barAreaWidth * normalized)
+    drawRect(page, x + 12, cursorY - 11, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
+
+    if (mode === "trend") {
+      const salesWidth = Math.max(8, barAreaWidth * Math.max(0.06, (row.sales ?? 0) / Math.max(1, maxValue)))
+      const expensesWidth = Math.max(6, barAreaWidth * Math.max(0.04, (row.expenses ?? 0) / Math.max(1, maxValue)))
+      drawRect(page, x + 12, cursorY - 11, salesWidth, rowHeight / 2 - 1, primaryColor)
+      drawRect(page, x + 12, cursorY - 4, expensesWidth, rowHeight / 2 - 1, secondaryColor)
+      drawText(page, x + width - 74, cursorY, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 8.2, "F2", COLORS.muted)
+    } else {
+      drawRect(page, x + 12, cursorY - 11, barWidth, rowHeight, primaryColor)
+      drawText(page, x + width - 66, cursorY, `${row.quantity ?? row.value}`, 8.2, "F2", COLORS.white)
+    }
+
+    cursorY -= rowGap
+  }
+}
+
 function drawTableHeader(page: PdfPage, headers: string[], widths: number[], accent: string, topY = 648) {
   const headerHeight = 28
   let x = PDF.marginX
@@ -799,7 +1151,6 @@ function drawTableRow(
     const fontSize = 9.5
     const lineHeight = 11.3
     const lines = wrapText(cell, estimateCharsForWidth(width - paddingX * 2, fontSize))
-    const maxLines = Math.max(1, lines.length)
     const textTop = topY - paddingTop
     let textY = textTop
 

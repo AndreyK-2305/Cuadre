@@ -8,6 +8,7 @@ export type PlanCapabilities = {
   reportHistoryDays: number | null
   reportTodayOnly: boolean
   exportFormats: ReportExportFormat[]
+  advancedReportInsights: boolean
 }
 
 export const planCapabilities: Record<SubscriptionLevel, PlanCapabilities> = {
@@ -16,28 +17,32 @@ export const planCapabilities: Record<SubscriptionLevel, PlanCapabilities> = {
     employeeLimit: 0,
     reportHistoryDays: null,
     reportTodayOnly: true,
-    exportFormats: []
+    exportFormats: [],
+    advancedReportInsights: false
   },
   Basico: {
     productLimit: null,
     employeeLimit: 2,
     reportHistoryDays: 92,
     reportTodayOnly: false,
-    exportFormats: ["pdf"]
+    exportFormats: ["pdf"],
+    advancedReportInsights: false
   },
   Completo: {
     productLimit: null,
     employeeLimit: 5,
     reportHistoryDays: null,
     reportTodayOnly: false,
-    exportFormats: ["pdf", "excel"]
+    exportFormats: ["pdf", "excel"],
+    advancedReportInsights: true
   },
   Emprendedor: {
     productLimit: null,
     employeeLimit: null,
     reportHistoryDays: null,
     reportTodayOnly: false,
-    exportFormats: ["pdf", "excel"]
+    exportFormats: ["pdf", "excel"],
+    advancedReportInsights: true
   }
 }
 
