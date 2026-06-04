@@ -173,7 +173,23 @@ function tableHtml(title: string, headers: string[], rows: string[][]) {
 }
 
 function buildPdfBlob(lines: string[]) {
-  const pages = chunk(lines, 42)
+  const layout = {
+    pageWidth: 612,
+    pageHeight: 792,
+    marginLeft: 50,
+    marginTop: 52,
+    marginBottom: 44,
+    fontSize: 10,
+    lineHeight: 14
+  }
+  const maxContentWidth = layout.pageWidth - layout.marginLeft * 2
+  const maxCharsPerLine = Math.max(48, Math.floor(maxContentWidth / 5.2))
+  const wrappedLines = wrapPdfLines(lines, maxCharsPerLine)
+  const linesPerPage = Math.max(
+    24,
+    Math.floor((layout.pageHeight - layout.marginTop - layout.marginBottom) / layout.lineHeight)
+  )
+  const pages = chunk(wrappedLines, linesPerPage)
   const objects: string[] = []
   const addObject = (content: string) => {
     objects.push(content)
@@ -185,14 +201,14 @@ function buildPdfBlob(lines: string[]) {
   for (const pageLines of pages) {
     const content = [
       "BT",
-      "/F1 10 Tf",
-      "50 790 Td",
-      "14 TL",
-      ...pageLines.map((line) => `(${escapePdfText(line.slice(0, 105))}) Tj T*`),
+      `/F1 ${layout.fontSize} Tf`,
+      `${layout.marginLeft} ${layout.pageHeight - layout.marginTop} Td`,
+      `${layout.lineHeight} TL`,
+      ...pageLines.map((line) => `(${escapePdfText(line)}) Tj T*`),
       "ET"
     ].join("\n")
     const contentRef = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
-    const pageRef = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`)
+    const pageRef = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${layout.pageWidth} ${layout.pageHeight}] /Resources << /Font << /F1 ${fontRef} 0 R >> >> /Contents ${contentRef} 0 R >>`)
     pageRefs.push(pageRef)
   }
 
@@ -238,6 +254,75 @@ function chunk<T>(items: T[], size: number) {
     chunks.push(items.slice(index, index + size))
   }
   return chunks.length > 0 ? chunks : [[]]
+}
+
+function wrapPdfLines(lines: string[], maxCharsPerLine: number) {
+  const wrapped: string[] = []
+
+  for (const line of lines) {
+    if (!line) {
+      wrapped.push("")
+      continue
+    }
+
+    const segments = line.split("\n")
+    for (const segment of segments) {
+      const trimmed = segment.trimEnd()
+      if (!trimmed) {
+        wrapped.push("")
+        continue
+      }
+
+      const indentMatch = trimmed.match(/^\s+/)
+      const indent = indentMatch?.[0] ?? ""
+      const words = trimmed.trim().split(/\s+/)
+      let current = indent
+
+      for (const word of words) {
+        const candidate = current.trim().length === 0 ? `${indent}${word}` : `${current} ${word}`
+
+        if (candidate.length <= maxCharsPerLine) {
+          current = candidate
+          continue
+        }
+
+        if (current.trim().length > 0) {
+          wrapped.push(current)
+        }
+
+        if (word.length > maxCharsPerLine) {
+          wrapped.push(...splitLongWord(word, maxCharsPerLine, indent))
+          current = indent
+          continue
+        }
+
+        current = `${indent}${word}`
+      }
+
+      if (current.trim().length > 0) {
+        wrapped.push(current)
+      }
+    }
+  }
+
+  return wrapped.length > 0 ? wrapped : [""]
+}
+
+function splitLongWord(word: string, maxCharsPerLine: number, indent: string) {
+  const parts: string[] = []
+  let remaining = word
+
+  while (remaining.length > maxCharsPerLine) {
+    const chunkLength = Math.max(12, maxCharsPerLine - indent.length)
+    parts.push(`${indent}${remaining.slice(0, chunkLength)}`)
+    remaining = remaining.slice(chunkLength)
+  }
+
+  if (remaining.length > 0) {
+    parts.push(`${indent}${remaining}`)
+  }
+
+  return parts
 }
 
 function escapeHtml(value: string) {
