@@ -2783,6 +2783,13 @@ input:focus-visible,
   gap: 6px;
 }
 
+.announcement-history-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
 .announcement-history-item span {
   white-space: normal;
 }
@@ -2790,6 +2797,37 @@ input:focus-visible,
 .announcement-history-item small {
   color: var(--dashboard-accent);
   font-weight: 800;
+}
+
+.announcement-history-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.announcement-history-actions .button.danger {
+  min-height: 38px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-pill-success {
+  color: #0e6b46;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.status-pill-muted {
+  color: #5f6474;
+  background: rgba(95, 100, 116, 0.12);
 }
 
 .admin-empty {

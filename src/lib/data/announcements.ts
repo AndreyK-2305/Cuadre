@@ -22,6 +22,15 @@ export function createAnnouncement(payload: AnnouncementCreatePayload) {
     .single()
 }
 
+export function cancelAnnouncement(announcementId: string) {
+  return supabase
+    .from("avisos_admin")
+    .update({ activo: false })
+    .eq("id", announcementId)
+    .select("*")
+    .single()
+}
+
 export async function fetchPendingAnnouncements(): Promise<DataResponse<Announcement[]>> {
   const { data: authData, error: authError } = await supabase.auth.getUser()
   const userId = authData.user?.id
