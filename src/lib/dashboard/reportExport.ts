@@ -136,17 +136,23 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
   const summaryCards = includeSummary
     ? `
       <div class="summary-title">Resumen neto del periodo del informe</div>
-      <section class="summary-grid">
-        ${summaryCardHtml("Resultado neto", formatSignedCurrency(overview.netResult), "Ventas menos egresos", overview.netResult >= 0 ? "success" : "danger")}
-        ${summaryCardHtml("Ventas filtradas", formatCurrency(overview.salesTotal), `${overview.salesCount} ventas registradas`, "primary")}
-        ${summaryCardHtml("Egresos filtrados", formatCurrency(overview.expensesTotal), `${overview.expensesCount} registros`, "accent")}
-        ${summaryCardHtml("Productos vendidos", String(overview.unitsSold), "Unidades en detalle", "soft")}
-      </section>
-      <section class="summary-strip">
-        <div><strong>Ventana:</strong> ${escapeHtml(overview.rangeLabel)}</div>
-        <div><strong>Anulaciones:</strong> ${overview.voidedSalesCount + overview.voidedExpensesCount}</div>
-        <div><strong>Generado:</strong> ${escapeHtml(overview.generatedAt)}</div>
-      </section>
+      <table class="summary-table" role="presentation">
+        <tr>
+          <td>${summaryCardHtml("Resultado neto", formatSignedCurrency(overview.netResult), "Ventas menos egresos", overview.netResult >= 0 ? "success" : "danger")}</td>
+          <td>${summaryCardHtml("Ventas filtradas", formatCurrency(overview.salesTotal), `${overview.salesCount} ventas registradas`, "primary")}</td>
+        </tr>
+        <tr>
+          <td>${summaryCardHtml("Egresos filtrados", formatCurrency(overview.expensesTotal), `${overview.expensesCount} registros`, "accent")}</td>
+          <td>${summaryCardHtml("Productos vendidos", String(overview.unitsSold), "Unidades en detalle", "soft")}</td>
+        </tr>
+      </table>
+      <table class="summary-strip-table" role="presentation">
+        <tr>
+          <td><strong>Ventana:</strong> ${escapeHtml(overview.rangeLabel)}</td>
+          <td><strong>Anulaciones:</strong> ${overview.voidedSalesCount + overview.voidedExpensesCount}</td>
+          <td><strong>Generado:</strong> ${escapeHtml(overview.generatedAt)}</td>
+        </tr>
+      </table>
     `
     : ""
 
@@ -308,6 +314,41 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
           gap: 14px;
         }
 
+        .summary-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 14px 14px;
+          margin-top: 2px;
+        }
+
+        .summary-table td {
+          width: 50%;
+          vertical-align: top;
+          padding: 0;
+        }
+
+        .summary-strip-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0 12px;
+          margin-top: 0;
+        }
+
+        .summary-strip-table td {
+          width: 33.333%;
+          padding: 12px 14px;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.75);
+          color: var(--muted);
+          font-size: 12px;
+          vertical-align: top;
+        }
+
+        .summary-strip-table strong {
+          color: var(--text);
+        }
+
         .summary-card {
           position: relative;
           background: var(--white);
@@ -371,11 +412,37 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
           margin-top: 16px;
         }
 
+        .analytics-summary-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 14px 14px;
+          margin-top: 16px;
+        }
+
+        .analytics-summary-table td {
+          width: 50%;
+          vertical-align: top;
+          padding: 0;
+        }
+
         .analytics-charts-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 14px;
           margin-top: 14px;
+        }
+
+        .analytics-charts-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 14px 14px;
+          margin-top: 14px;
+        }
+
+        .analytics-charts-table td {
+          width: 50%;
+          vertical-align: top;
+          padding: 0;
         }
 
         .analytics-chart {
@@ -402,39 +469,49 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
           color: var(--muted);
         }
 
-        .chart-row {
-          display: grid;
-          gap: 7px;
-          margin-top: 10px;
+        .chart-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 6px;
         }
 
-        .chart-row-labels {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
+        .chart-table tr + tr td {
+          padding-top: 10px;
+        }
+
+        .chart-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text);
+          padding-right: 10px;
+          width: 48%;
+          vertical-align: middle;
+        }
+
+        .chart-value {
           font-size: 11px;
           color: var(--muted);
+          text-align: right;
+          white-space: nowrap;
+          vertical-align: middle;
         }
 
-        .chart-row-labels strong {
-          color: var(--text);
+        .chart-track-cell {
+          padding: 0;
         }
 
-        .chart-track {
-          position: relative;
-          height: 12px;
-          border-radius: 999px;
+        .chart-track-table {
+          width: 100%;
+          border-collapse: collapse;
           overflow: hidden;
+          border-radius: 999px;
           background: #e7edf2;
           border: 1px solid var(--border);
         }
 
-        .chart-fill {
-          position: absolute;
-          top: 0;
-          left: 0;
-          height: 100%;
-          border-radius: inherit;
+        .chart-track-table td {
+          height: 12px;
+          padding: 0;
         }
 
         .chart-fill.sales {
@@ -442,14 +519,15 @@ function buildStyledExcelHtml(payload: ReportExportPayload) {
         }
 
         .chart-fill.expenses {
-          top: auto;
-          bottom: 0;
-          height: 50%;
           background: linear-gradient(90deg, var(--accent), #ddb35c);
         }
 
         .chart-fill.product {
           background: linear-gradient(90deg, var(--success), #48b568);
+        }
+
+        .chart-fill-rest {
+          background: transparent;
         }
 
         .report-section-analytics .empty-cell {
@@ -632,39 +710,69 @@ function summaryCardHtml(title: string, value: string, caption: string, tone: "p
 function analyticsSectionHtml(analytics: AnalyticsData) {
   const trendRows = analytics.trendPoints.length > 0
     ? analytics.trendPoints
-        .map(
-          (point) => `
-            <div class="chart-row">
-              <div class="chart-row-labels">
-                <strong>${escapeHtml(point.label)}</strong>
-                <span>${escapeHtml(formatCurrency(point.net))}</span>
-              </div>
-              <div class="chart-track">
-                <span class="chart-fill sales" style="width:${Math.max(8, (point.sales / analytics.maxTrendValue) * 100)}%"></span>
-                <span class="chart-fill expenses" style="width:${Math.max(8, (point.expenses / analytics.maxTrendValue) * 100)}%"></span>
-              </div>
-            </div>
+        .map((point) => {
+          const salesWidth = Math.max(8, (point.sales / analytics.maxTrendValue) * 100)
+          const expensesWidth = Math.max(8, (point.expenses / analytics.maxTrendValue) * 100)
+
+          return `
+            <table class="chart-table" role="presentation">
+              <tbody>
+                <tr>
+                  <td class="chart-label">${escapeHtml(point.label)}</td>
+                  <td class="chart-value">${escapeHtml(formatCurrency(point.net))}</td>
+                </tr>
+                <tr>
+                  <td class="chart-track-cell" colspan="2">
+                    <table class="chart-track-table" role="presentation">
+                      <tbody>
+                        <tr>
+                          <td class="chart-fill sales" style="width:${salesWidth}%"></td>
+                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - salesWidth)}%"></td>
+                        </tr>
+                        <tr>
+                          <td class="chart-fill expenses" style="width:${expensesWidth}%"></td>
+                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - expensesWidth)}%"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           `
-        )
+        })
         .join("")
     : `<div class="empty-cell">Aun no hay movimientos para graficar.</div>`
 
   const productRows = analytics.productInsights.length > 0
     ? analytics.productInsights
         .slice(0, 6)
-        .map(
-          (item) => `
-            <div class="chart-row">
-              <div class="chart-row-labels">
-                <strong>${escapeHtml(item.name)}</strong>
-                <span>${item.quantity} unidades</span>
-              </div>
-              <div class="chart-track">
-                <span class="chart-fill product" style="width:${Math.max(10, (item.quantity / analytics.maxProductQuantity) * 100)}%"></span>
-              </div>
-            </div>
+        .map((item) => {
+          const width = Math.max(10, (item.quantity / analytics.maxProductQuantity) * 100)
+
+          return `
+            <table class="chart-table" role="presentation">
+              <tbody>
+                <tr>
+                  <td class="chart-label">${escapeHtml(item.name)}</td>
+                  <td class="chart-value">${item.quantity} unidades</td>
+                </tr>
+                <tr>
+                  <td class="chart-track-cell" colspan="2">
+                    <table class="chart-track-table" role="presentation">
+                      <tbody>
+                        <tr>
+                          <td class="chart-fill product" style="width:${width}%"></td>
+                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - width)}%"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           `
-        )
+        })
         .join("")
     : `<div class="empty-cell">Aun no hay ventas para mostrar productos.</div>`
 
@@ -677,28 +785,38 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
           <p>Disponible para planes Completo y Emprendedor. Resume el comportamiento del periodo con indicadores visuales.</p>
         </div>
       </div>
-      <div class="analytics-summary-grid">
-        ${summaryCardHtml("Ticket promedio", formatCurrency(analytics.averageTicket), "Promedio por venta registrada.", "primary")}
-        ${summaryCardHtml("Dia mas fuerte", analytics.peakTrendDay?.label ?? "Sin datos", analytics.peakTrendDay ? `Neto ${formatCurrency(analytics.peakTrendDay.net)}` : "Aun no hay tendencia.", "success")}
-        ${summaryCardHtml("Producto lider", analytics.topProduct?.name ?? "Sin datos", analytics.topProduct ? `${analytics.topProduct.quantity} unidades` : "Aun no hay ventas.", "accent")}
-        ${summaryCardHtml("Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? "success" : "danger")}
-      </div>
-      <div class="analytics-charts-grid">
-        <div class="analytics-chart">
-          <div class="analytics-chart-title">
-            <strong>Tendencia por dia</strong>
-            <span>Ventas y egresos del periodo</span>
-          </div>
-          ${trendRows}
-        </div>
-        <div class="analytics-chart">
-          <div class="analytics-chart-title">
-            <strong>Productos con mayor salida</strong>
-            <span>Top de unidades vendidas</span>
-          </div>
-          ${productRows}
-        </div>
-      </div>
+      <table class="analytics-summary-table" role="presentation">
+        <tr>
+          <td>${summaryCardHtml("Ticket promedio", formatCurrency(analytics.averageTicket), "Promedio por venta registrada.", "primary")}</td>
+          <td>${summaryCardHtml("Dia mas fuerte", analytics.peakTrendDay?.label ?? "Sin datos", analytics.peakTrendDay ? `Neto ${formatCurrency(analytics.peakTrendDay.net)}` : "Aun no hay tendencia.", "success")}</td>
+        </tr>
+        <tr>
+          <td>${summaryCardHtml("Producto lider", analytics.topProduct?.name ?? "Sin datos", analytics.topProduct ? `${analytics.topProduct.quantity} unidades` : "Aun no hay ventas.", "accent")}</td>
+          <td>${summaryCardHtml("Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? "success" : "danger")}</td>
+        </tr>
+      </table>
+      <table class="analytics-charts-table" role="presentation">
+        <tr>
+          <td>
+            <div class="analytics-chart">
+              <div class="analytics-chart-title">
+                <strong>Tendencia por dia</strong>
+                <span>Ventas y egresos del periodo</span>
+              </div>
+              ${trendRows}
+            </div>
+          </td>
+          <td>
+            <div class="analytics-chart">
+              <div class="analytics-chart-title">
+                <strong>Productos con mayor salida</strong>
+                <span>Top de unidades vendidas</span>
+              </div>
+              ${productRows}
+            </div>
+          </td>
+        </tr>
+      </table>
     </section>
   `
 }
@@ -915,7 +1033,7 @@ function renderAnalyticsPage(
   drawAnalyticsCard(page, rightX, secondRowY, cardWidth, cardHeight, "Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? COLORS.success : COLORS.danger)
 
   const chartWidth = (PDF.width - PDF.marginX * 2 - PDF.gutter) / 2
-  const chartHeight = 210
+  const chartHeight = 226
   drawAnalyticsChart(
     page,
     leftX,
@@ -1096,9 +1214,9 @@ function drawAnalyticsChart(
     drawText(page, x + 90, legendY, "Egresos", 8.1, "F1", COLORS.muted)
   }
 
-  const contentTop = y - 72
-  const rowGap = mode === "trend" ? 31 : 30
-  const rowHeight = mode === "trend" ? 20 : 16
+  const contentTop = y - 76
+  const rowGap = mode === "trend" ? 34 : 33
+  const rowHeight = mode === "trend" ? 22 : 18
   const barAreaWidth = width - 40
   let cursorY = contentTop
 
@@ -1107,21 +1225,21 @@ function drawAnalyticsChart(
     return
   }
 
-  for (const row of rows.slice(0, 6)) {
-    drawText(page, x + 12, cursorY, row.label, 8.8, "F2", COLORS.text)
+  for (const row of rows.slice(0, 5)) {
+    drawText(page, x + 12, cursorY, row.label, 8.6, "F2", COLORS.text)
     const normalized = Math.max(0.08, row.value / Math.max(1, maxValue))
     const barWidth = Math.max(14, barAreaWidth * normalized)
-    drawRect(page, x + 12, cursorY - 12, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
+    drawRect(page, x + 12, cursorY - 14, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
 
     if (mode === "trend") {
       const salesWidth = Math.max(8, barAreaWidth * Math.max(0.06, (row.sales ?? 0) / Math.max(1, maxValue)))
       const expensesWidth = Math.max(6, barAreaWidth * Math.max(0.04, (row.expenses ?? 0) / Math.max(1, maxValue)))
-      drawRect(page, x + 12, cursorY - 11, salesWidth, 8, primaryColor)
-      drawRect(page, x + 12, cursorY - 1, expensesWidth, 7, secondaryColor)
-      drawText(page, x + width - 74, cursorY, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 8.2, "F2", COLORS.muted)
+      drawRect(page, x + 12, cursorY - 12, salesWidth, 8, primaryColor)
+      drawRect(page, x + 12, cursorY - 2, expensesWidth, 6, secondaryColor)
+      drawText(page, x + width - 74, cursorY, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 8.0, "F2", COLORS.muted)
     } else {
-      drawRect(page, x + 12, cursorY - 11, barWidth, rowHeight - 2, primaryColor)
-      drawText(page, x + width - 66, cursorY, `${row.quantity ?? row.value}`, 8.2, "F2", COLORS.white)
+      drawRect(page, x + 12, cursorY - 12, barWidth, 10, primaryColor)
+      drawText(page, x + width - 66, cursorY, `${row.quantity ?? row.value}`, 8.0, "F2", COLORS.white)
     }
 
     cursorY -= rowGap
