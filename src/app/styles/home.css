@@ -159,6 +159,7 @@
   z-index: 1;
   width: min(100%, 430px);
   aspect-ratio: 9 / 16;
+  background: #f2f3ee;
   filter: drop-shadow(0 28px 34px rgba(22, 34, 31, 0.1));
 }
 
@@ -199,13 +200,9 @@
 
   .landing-showcase-image {
     object-position: center center;
-    filter:
-      blur(calc((1 - var(--reveal-progress)) * 2px))
-      saturate(calc(0.98 + var(--reveal-progress) * 0.02));
-    opacity: calc(0.5 + var(--reveal-progress) * 0.5);
-    transform:
-      translateY(calc((1 - var(--reveal-progress)) * 10px))
-      scale(calc(0.992 + var(--reveal-progress) * 0.008));
+    filter: none;
+    opacity: 1;
+    transform: none;
     clip-path: none;
   }
 }
