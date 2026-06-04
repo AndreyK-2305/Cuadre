@@ -18,7 +18,7 @@ create table if not exists public.usuarios (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   nombre text,
-  rol text not null default 'Administrador' check (rol in ('SuperAdministrador', 'Administrador', 'Empleado')),
+  rol text not null default 'Administrador' check (rol in ('SuperAdministrador', 'Administrador', 'Gerente', 'Empleado')),
   restaurante_id uuid references public.restaurantes(id) on delete set null,
   activo boolean not null default true,
   created_at timestamptz not null default now()
@@ -152,7 +152,7 @@ begin
   drop constraint if exists usuarios_rol_check;
 
   alter table public.usuarios
-  add constraint usuarios_rol_check check (rol in ('SuperAdministrador', 'Administrador', 'Empleado'));
+  add constraint usuarios_rol_check check (rol in ('SuperAdministrador', 'Administrador', 'Gerente', 'Empleado'));
 
   if not exists (
     select 1
@@ -261,7 +261,8 @@ create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(ven
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 create index if not exists idx_restaurantes_admin_email on public.restaurantes(lower(admin_email));
 create index if not exists idx_usuarios_restaurante on public.usuarios(restaurante_id);
-create index if not exists idx_usuarios_empleados_restaurante on public.usuarios(restaurante_id, activo) where rol = 'Empleado';
+drop index if exists idx_usuarios_empleados_restaurante;
+create index idx_usuarios_empleados_restaurante on public.usuarios(restaurante_id, activo) where rol in ('Empleado', 'Gerente');
 create index if not exists idx_avisos_admin_activo on public.avisos_admin(activo, created_at desc);
 create index if not exists idx_avisos_lecturas_user on public.avisos_lecturas(user_id, aviso_id);
 

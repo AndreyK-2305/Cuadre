@@ -6,10 +6,11 @@ import {
   createEmployee,
   fetchEmployees,
   resetEmployeePassword,
-  toggleEmployee
+  toggleEmployee,
+  updateEmployee
 } from "@/lib/data/employees"
 import { fetchRestaurants } from "@/lib/data/restaurants"
-import type { EmployeeUser, Restaurant } from "@/types/app"
+import type { EmployeeUser, OperationalUserRole, Restaurant } from "@/types/app"
 
 type EmployeesModuleProps = {
   restaurantId: string
@@ -19,12 +20,16 @@ type EmployeesModuleProps = {
 type EmployeeForm = {
   nombre: string
   email: string
+  rol: OperationalUserRole
 }
 
 const emptyForm: EmployeeForm = {
   nombre: "",
-  email: ""
+  email: "",
+  rol: "Empleado"
 }
+
+const operationalRoles: OperationalUserRole[] = ["Empleado", "Gerente"]
 
 export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesModuleProps) {
   const [employees, setEmployees] = useState<EmployeeUser[]>([])
@@ -122,6 +127,10 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
     () => employees.filter((employee) => employee.activo).length,
     [employees]
   )
+  const managerCount = useMemo(
+    () => employees.filter((employee) => employee.rol === "Gerente").length,
+    [employees]
+  )
 
   function updateForm<K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -137,11 +146,12 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
     const payload = {
       restaurante_id: targetRestaurantId,
       nombre: form.nombre.trim(),
-      email: form.email.trim().toLowerCase()
+      email: form.email.trim().toLowerCase(),
+      rol: form.rol
     }
 
-    if (!payload.restaurante_id || !payload.nombre || !payload.email) {
-      setError("Completa emprendimiento, nombre y correo del empleado.")
+    if (!payload.restaurante_id || !payload.nombre || !payload.email || !payload.rol) {
+      setError("Completa emprendimiento, nombre, correo y rol operativo.")
       setSaving(false)
       return
     }
@@ -161,7 +171,29 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
         : [data, ...current]
     })
     setForm(emptyForm)
-    setNotice(`${data.nombre ?? data.email} quedo autorizado. Creara su clave en el primer ingreso.`)
+    setNotice(`${data.nombre ?? data.email} quedo autorizado como ${roleLabel(data.rol)}. Creara su clave en el primer ingreso.`)
+  }
+
+  async function handleRoleChange(employee: EmployeeUser, rol: OperationalUserRole) {
+    if (employee.rol === rol) return
+
+    setUpdatingId(employee.user_id)
+    setError("")
+    setNotice("")
+
+    const { data, error: updateError } = await updateEmployee({
+      user_id: employee.user_id,
+      rol
+    })
+    setUpdatingId("")
+
+    if (updateError || !data) {
+      setError(updateError?.message ?? "No se pudo actualizar el rol operativo.")
+      return
+    }
+
+    setEmployees((current) => current.map((item) => (item.user_id === data.user_id ? data : item)))
+    setNotice(`${data.nombre ?? data.email} ahora tiene rol ${roleLabel(data.rol)}.`)
   }
 
   async function handleToggleEmployee(employee: EmployeeUser) {
@@ -208,7 +240,7 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
             <Building2 size={18} aria-hidden="true" />
             <div>
               <h2>Emprendimiento seleccionado</h2>
-              <p>Selecciona el cliente donde se crearan y administraran empleados.</p>
+            <p>Selecciona el cliente donde se crearan y administraran empleados o gerentes.</p>
             </div>
           </div>
           <div className="filter-grid compact">
@@ -239,8 +271,8 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
       <section className="admin-grid">
         <form className="panel form-grid admin-form" onSubmit={handleSubmit}>
           <div className="section-title">
-            <h2>Nuevo empleado</h2>
-            <p>Autoriza un correo operativo con reportes limitados al dia actual.</p>
+            <h2>Nuevo usuario operativo</h2>
+            <p>Autoriza empleados limitados o gerentes con permisos operativos elevados.</p>
           </div>
 
           <div className="field">
@@ -266,22 +298,35 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
             />
           </div>
 
+          <div className="field">
+            <label htmlFor="employee-role">Rol operativo</label>
+            <select
+              id="employee-role"
+              value={form.rol}
+              onChange={(event) => updateForm("rol", event.target.value as OperationalUserRole)}
+            >
+              {operationalRoles.map((role) => (
+                <option key={role} value={role}>{roleLabel(role)}</option>
+              ))}
+            </select>
+          </div>
+
           <button className="button primary" type="submit" disabled={saving}>
             <UserPlus size={18} aria-hidden="true" />
-            {saving ? "Guardando..." : "Registrar empleado"}
+            {saving ? "Guardando..." : "Registrar usuario"}
           </button>
         </form>
 
         <aside className="admin-summary">
           <article className="metric">
-            <span>Empleados activos</span>
+            <span>Usuarios activos</span>
             <strong>{activeEmployees}</strong>
-            <small>{employees.length} registrados</small>
+            <small>{managerCount} gerente(s) registrados</small>
           </article>
           <article className="panel admin-recent-card">
             <div className="section-title">
-              <h2>Permisos de empleado</h2>
-              <p>Puede vender, gestionar inventario y crear egresos del dia. Sus reportes quedan limitados a hoy.</p>
+              <h2>Permisos operativos</h2>
+              <p>Empleado consulta inventario y reportes del dia. Gerente opera como administrador, sin modificar el administrador principal.</p>
             </div>
           </article>
         </aside>
@@ -289,8 +334,8 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
 
       <section className="panel admin-list">
         <div className="section-title">
-          <h2>Empleados registrados</h2>
-          <p>Usuarios operativos autorizados para entrar por el login general.</p>
+          <h2>Usuarios operativos registrados</h2>
+          <p>Empleados y gerentes autorizados para entrar por el login general.</p>
         </div>
 
         <label className="search-box admin-search" htmlFor="employee-search">
@@ -307,7 +352,7 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
         {loadingEmployees && <div className="empty-state">Cargando empleados...</div>}
 
         {!loadingEmployees && employees.length === 0 && (
-          <div className="empty-state">Aun no hay empleados registrados.</div>
+          <div className="empty-state">Aun no hay usuarios operativos registrados.</div>
         )}
 
         {!loadingEmployees &&
@@ -316,14 +361,25 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
               <div className="restaurant-row-main">
                 <Users size={19} aria-hidden="true" />
                 <div>
-                  <strong>{employee.nombre ?? "Empleado sin nombre"}</strong>
+                  <strong>{employee.nombre ?? "Usuario sin nombre"}</strong>
                   <span>{employee.email}</span>
                 </div>
               </div>
               <span className={`badge ${employee.activo ? "active" : "off"}`}>
                 {employee.activo ? "Activo" : "Suspendido"}
               </span>
-              <span>Reportes del dia</span>
+              <label className="employee-role-select">
+                <span>Rol</span>
+                <select
+                  value={employee.rol}
+                  onChange={(event) => handleRoleChange(employee, event.target.value as OperationalUserRole)}
+                  disabled={updatingId === employee.user_id}
+                >
+                  {operationalRoles.map((role) => (
+                    <option key={role} value={role}>{roleLabel(role)}</option>
+                  ))}
+                </select>
+              </label>
               <div className="restaurant-row-actions">
                 <button
                   className={employee.activo ? "button warn" : "button mint"}
@@ -353,4 +409,8 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
       </section>
     </div>
   )
+}
+
+function roleLabel(role: OperationalUserRole) {
+  return role === "Gerente" ? "Gerente" : "Empleado"
 }

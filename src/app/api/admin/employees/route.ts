@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js"
-import type { EmployeeCreatePayload, EmployeeUser, Restaurant, UserProfile } from "@/types/app"
+import type { EmployeeCreatePayload, EmployeeUser, OperationalUserRole, Restaurant, UserProfile } from "@/types/app"
 
 type EmployeeActionBody = {
   action?: "reset" | "toggle" | "update"
   user_id?: string
   nombre?: string
   activo?: boolean
+  rol?: OperationalUserRole
 }
 
 type AuthorizedScope = {
@@ -20,6 +21,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const publishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const manageableRoles: OperationalUserRole[] = ["Gerente", "Empleado"]
 
 export async function GET(request: NextRequest) {
   const authorized = await getAuthorizedScope(request)
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
     .from("usuarios")
     .select("user_id, email, nombre, rol, restaurante_id, activo, created_at")
     .eq("restaurante_id", restaurantId)
-    .eq("rol", "Empleado")
+    .in("rol", manageableRoles)
     .order("created_at", { ascending: false })
     .returns<EmployeeUser[]>()
 
@@ -55,10 +57,11 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as EmployeeCreatePayload | null
   const email = normalizeEmail(body?.email)
   const nombre = String(body?.nombre ?? "").trim()
+  const role = normalizeOperationalRole(body?.rol)
   const restaurantId = resolveRestaurantId(authorized, body?.restaurante_id)
 
-  if (!restaurantId || !email || !nombre) {
-    return NextResponse.json({ error: "Selecciona emprendimiento, nombre y correo del empleado." }, { status: 400 })
+  if (!restaurantId || !email || !nombre || !role) {
+    return NextResponse.json({ error: "Selecciona emprendimiento, nombre, correo y rol operativo." }, { status: 400 })
   }
 
   const restaurant = await fetchRestaurant(authorized.serviceClient, restaurantId)
@@ -70,6 +73,7 @@ export async function POST(request: NextRequest) {
   const employee = await ensureEmployeeUser(authorized.serviceClient, restaurant.restaurant, {
     email,
     nombre,
+    rol: role,
     resetPassword: true
   })
 
@@ -116,20 +120,35 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ employee: employee.employee })
   }
 
-  const patch =
-    action === "toggle"
-      ? { activo: Boolean(body?.activo) }
-      : { nombre: String(body?.nombre ?? "").trim() }
+  const patch: Partial<Pick<EmployeeUser, "nombre" | "rol" | "activo">> = {}
 
-  if (action === "update" && !patch.nombre) {
-    return NextResponse.json({ error: "El nombre del empleado es obligatorio." }, { status: 400 })
+  if (action === "toggle") {
+    patch.activo = Boolean(body?.activo)
+  } else {
+    if (body?.nombre !== undefined) {
+      patch.nombre = String(body.nombre).trim()
+
+      if (!patch.nombre) {
+        return NextResponse.json({ error: "El nombre del usuario operativo es obligatorio." }, { status: 400 })
+      }
+    }
+
+    if (body?.rol !== undefined) {
+      const role = normalizeOperationalRole(body.rol)
+
+      if (!role) {
+        return NextResponse.json({ error: "Selecciona un rol operativo valido." }, { status: 400 })
+      }
+
+      patch.rol = role
+    }
   }
 
   const { data, error } = await authorized.serviceClient
     .from("usuarios")
     .update(patch)
     .eq("user_id", userId)
-    .eq("rol", "Empleado")
+    .in("rol", manageableRoles)
     .select("user_id, email, nombre, rol, restaurante_id, activo, created_at")
     .single<EmployeeUser>()
 
@@ -250,7 +269,7 @@ async function fetchEmployee(
     .from("usuarios")
     .select("user_id, email, nombre, rol, restaurante_id, activo, created_at")
     .eq("user_id", userId)
-    .eq("rol", "Empleado")
+    .in("rol", manageableRoles)
     .maybeSingle<EmployeeUser>()
 
   if (error || !data) {
@@ -263,7 +282,7 @@ async function fetchEmployee(
 async function ensureEmployeeUser(
   serviceClient: SupabaseClient,
   restaurant: Restaurant,
-  options: { email: string; nombre: string; resetPassword: boolean }
+  options: { email: string; nombre: string; rol: OperationalUserRole; resetPassword: boolean }
 ): Promise<{ employee: EmployeeUser } | { error: string }> {
   const existingProfile = await fetchProfileByEmail(serviceClient, options.email)
 
@@ -271,7 +290,7 @@ async function ensureEmployeeUser(
     return { error: existingProfile.error }
   }
 
-  if (existingProfile.profile && existingProfile.profile.rol !== "Empleado") {
+  if (existingProfile.profile && !manageableRoles.includes(existingProfile.profile.rol as OperationalUserRole)) {
     return { error: "Este correo ya pertenece a un administrador o SuperAdministrador." }
   }
 
@@ -324,7 +343,7 @@ async function ensureEmployeeUser(
         user_id: user.user.id,
         email: options.email,
         nombre: options.nombre,
-        rol: "Empleado",
+        rol: options.rol,
         restaurante_id: restaurant.id,
         activo: true
       },
@@ -414,4 +433,9 @@ function createAccessMetadata(name: string, passwordPending: boolean) {
 
 function normalizeEmail(value: string | null | undefined) {
   return String(value ?? "").trim().toLowerCase()
+}
+
+function normalizeOperationalRole(value: string | null | undefined): OperationalUserRole | null {
+  const role = String(value ?? "").trim()
+  return role === "Gerente" || role === "Empleado" ? role : null
 }

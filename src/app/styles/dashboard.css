@@ -2443,6 +2443,23 @@ input:focus-visible,
   grid-template-columns: minmax(220px, 1fr) auto minmax(130px, 0.35fr) minmax(260px, auto);
 }
 
+.employee-role-select {
+  display: grid;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.employee-role-select span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.employee-role-select select {
+  min-height: 38px;
+  border-radius: 8px;
+}
+
 .restaurant-row-main {
   display: flex;
   align-items: center;

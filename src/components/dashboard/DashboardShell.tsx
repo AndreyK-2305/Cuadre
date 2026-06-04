@@ -77,7 +77,7 @@ export function DashboardShell() {
 
   const modules = useMemo(() => {
     if (canAccessAdmin) return superAdminModules
-    if (profile?.rol === "Administrador") return adminOperatorModules
+    if (profile?.rol === "Administrador" || profile?.rol === "Gerente") return adminOperatorModules
     return operatorModules
   }, [canAccessAdmin, profile?.rol])
 
