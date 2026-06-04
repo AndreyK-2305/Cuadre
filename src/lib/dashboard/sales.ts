@@ -30,6 +30,8 @@ export function getVisibleProductsLabel(search: string, visibleCount: number) {
 }
 
 export function getSaleStockState(product: Product) {
+  if (hasDisabledRecipeInventory(product)) return "off"
+
   const availableUnits = getRecipeAvailableUnits(product)
   if (availableUnits === null) return "active"
   if (availableUnits <= 0) return "off"
@@ -38,6 +40,8 @@ export function getSaleStockState(product: Product) {
 }
 
 export function getSaleStockLabel(product: Product) {
+  if (hasDisabledRecipeInventory(product)) return "Receta inactiva"
+
   const availableUnits = getRecipeAvailableUnits(product)
   if (availableUnits === null) return "Venta directa"
   if (availableUnits <= 0) return "Sin inventario"
@@ -60,9 +64,15 @@ export function getRecipeAvailableUnits(product: Product) {
 }
 
 export function getSaleAvailabilityLabel(product: Product) {
+  if (hasDisabledRecipeInventory(product)) return "corrige inventario asociado"
+
   const availableUnits = getRecipeAvailableUnits(product)
   if (availableUnits === null) return "sin receta de stock"
   return `${availableUnits} posibles por inventario`
+}
+
+export function hasDisabledRecipeInventory(product: Product) {
+  return (product.producto_inventario_recetas ?? []).some((recipe) => recipe.inventario?.activo === false)
 }
 
 export function canChargeCart(cart: CartItem[], cashReceived: number, cartTotal: number, saving: boolean) {

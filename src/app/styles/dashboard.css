@@ -539,7 +539,7 @@
 
 .cart-actions {
   display: grid;
-  grid-template-columns: 42px 1fr 42px 42px;
+  grid-template-columns: 42px minmax(78px, 112px) 42px 42px;
   gap: 8px;
   align-items: center;
 }
@@ -551,6 +551,20 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   font-weight: 900;
+}
+
+.qty-input {
+  width: 100%;
+  min-width: 78px;
+  padding: 0 0.8rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.checkout-alert {
+  margin-top: 0.85rem;
 }
 
 .totals {

@@ -26,6 +26,7 @@ import {
   getSaleAvailabilityLabel,
   getSaleStockLabel,
   getSaleStockState,
+  hasDisabledRecipeInventory,
   getVisibleProductsLabel,
   quickCashValues
 } from "@/lib/dashboard/sales"
@@ -65,6 +66,7 @@ export function SalesModule({
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
+  const [checkoutError, setCheckoutError] = useState("")
   const [receipt, setReceipt] = useState<RegisterSaleResult | null>(null)
 
   const loadProducts = useCallback(async () => {
@@ -98,6 +100,19 @@ export function SalesModule({
   const cartTotal = useMemo(() => getCartTotal(cart), [cart])
   const cartQuantity = useMemo(() => getCartQuantity(cart), [cart])
   const lowStockCount = useMemo(() => getLowStockCount(products), [products])
+  const checkoutInventoryItems = useMemo(() => {
+    const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]))
+
+    for (const cartItem of cart) {
+      for (const recipe of cartItem.product.producto_inventario_recetas ?? []) {
+        if (recipe.inventario && !inventoryById.has(recipe.inventario.id)) {
+          inventoryById.set(recipe.inventario.id, recipe.inventario)
+        }
+      }
+    }
+
+    return Array.from(inventoryById.values()).sort((left, right) => left.nombre.localeCompare(right.nombre))
+  }, [cart, inventoryItems])
 
   const visibleProductsLabel = getVisibleProductsLabel(search, filteredProducts.length)
 
@@ -117,6 +132,7 @@ export function SalesModule({
   function addToCart(product: Product) {
     setReceipt(null)
     setError("")
+    setCheckoutError("")
 
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
@@ -149,6 +165,7 @@ export function SalesModule({
   }
 
   function updateItemNote(productId: string, note: string) {
+    setCheckoutError("")
     updateCartItem(productId, (item) => ({ ...item, note }))
   }
 
@@ -157,6 +174,7 @@ export function SalesModule({
   }
 
   function updateItemConsumption(productId: string, index: number, patch: Partial<SaleInventoryConsumptionPayload>) {
+    setCheckoutError("")
     updateCartItem(productId, (item) => {
       const consumptions = getEditableConsumptions(item)
       return {
@@ -169,6 +187,7 @@ export function SalesModule({
   }
 
   function addItemConsumption(productId: string) {
+    setCheckoutError("")
     updateCartItem(productId, (item) => {
       const consumptions = getEditableConsumptions(item)
       const nextInventoryId = inventoryItems.find(
@@ -185,6 +204,7 @@ export function SalesModule({
   }
 
   function removeItemConsumption(productId: string, index: number) {
+    setCheckoutError("")
     updateCartItem(productId, (item) => ({
       ...item,
       inventoryConsumptions: getEditableConsumptions(item).filter((_, consumptionIndex) => consumptionIndex !== index)
@@ -192,18 +212,27 @@ export function SalesModule({
   }
 
   function resetItemConsumptions(productId: string) {
+    setCheckoutError("")
     updateCartItem(productId, (item) => ({ ...item, inventoryConsumptions: undefined }))
+  }
+
+  function updateItemQuantity(productId: string, quantity: number) {
+    const nextQuantity = Number.isFinite(quantity) ? Math.max(1, Math.trunc(quantity)) : 1
+    setCheckoutError("")
+    updateCartItem(productId, (item) => ({ ...item, quantity: nextQuantity }))
   }
 
   function clearCart() {
     setCart([])
     setCashReceived(0)
     setIsCheckoutOpen(false)
+    setCheckoutError("")
   }
 
   async function handleCharge() {
     setSaving(true)
     setError("")
+    setCheckoutError("")
     setReceipt(null)
 
     const items = buildSaleItems(cart)
@@ -213,7 +242,7 @@ export function SalesModule({
     setSaving(false)
 
     if (saleError) {
-      setError(saleError.message)
+      setCheckoutError(saleError.message)
       return
     }
 
@@ -326,7 +355,9 @@ export function SalesModule({
                         type="button"
                         onClick={() => addToCart(product)}
                         title={
-                          stockState === "off"
+                          hasDisabledRecipeInventory(product)
+                            ? "El inventario asociado esta suspendido. Corrige la receta antes de cobrar."
+                            : stockState === "off"
                             ? "Se puede vender, pero el inventario asociado quedara negativo"
                             : `Agregar ${product.nombre}`
                         }
@@ -419,15 +450,20 @@ export function SalesModule({
       {isCheckoutOpen && (
         <CheckoutModal
           cart={cart}
-          inventoryItems={inventoryItems}
+          inventoryItems={checkoutInventoryItems}
           cashReceived={cashReceived}
           cartTotal={cartTotal}
           change={change}
           saving={saving}
           canCharge={canCharge}
-          onClose={() => setIsCheckoutOpen(false)}
+          error={checkoutError}
+          onClose={() => {
+            setIsCheckoutOpen(false)
+            setCheckoutError("")
+          }}
           onAdd={addToCart}
           onDecrease={decreaseItem}
+          onQuantityChange={updateItemQuantity}
           onRemove={removeItem}
           onClear={clearCart}
           onNoteChange={updateItemNote}
@@ -451,9 +487,11 @@ function CheckoutModal({
   change,
   saving,
   canCharge,
+  error,
   onClose,
   onAdd,
   onDecrease,
+  onQuantityChange,
   onRemove,
   onClear,
   onNoteChange,
@@ -471,9 +509,11 @@ function CheckoutModal({
   change: number
   saving: boolean
   canCharge: boolean
+  error: string
   onClose: () => void
   onAdd: (product: Product) => void
   onDecrease: (productId: string) => void
+  onQuantityChange: (productId: string, quantity: number) => void
   onRemove: (productId: string) => void
   onClear: () => void
   onNoteChange: (productId: string, note: string) => void
@@ -494,6 +534,8 @@ function CheckoutModal({
           description={`${cart.length} productos · ${cartQuantity} unidades`}
           onClose={onClose}
         />
+
+        {error && <div className="alert checkout-alert">{error}</div>}
 
         <div className="checkout-grid">
           <section className="checkout-details">
@@ -527,7 +569,15 @@ function CheckoutModal({
                       >
                         <Minus size={17} />
                       </button>
-                      <div className="qty-box">{item.quantity}</div>
+                      <input
+                        className="qty-box qty-input"
+                        aria-label={`Cantidad de ${item.product.nombre}`}
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={item.quantity}
+                        onChange={(event) => onQuantityChange(item.product.id, Number(event.target.value))}
+                      />
                       <button
                         className="button subtle icon"
                         type="button"
@@ -582,7 +632,8 @@ function CheckoutModal({
                           >
                             {inventoryItems.map((inventory) => (
                               <option key={inventory.id} value={inventory.id}>
-                                {inventory.nombre} ({inventory.cantidad_stock} {inventory.tipo_unidad})
+                                {inventory.nombre} ({inventory.cantidad_stock} {inventory.tipo_unidad}
+                                {!inventory.activo ? " - suspendido" : ""})
                               </option>
                             ))}
                           </select>
@@ -608,7 +659,17 @@ function CheckoutModal({
 
                       {consumptions.map((consumption, index) => {
                         const inventory = inventoryItems.find((item) => item.id === consumption.inventario_id)
-                        if (!inventory || inventory.cantidad_stock >= consumption.cantidad) return null
+                        if (!inventory) return null
+
+                        if (!inventory.activo) {
+                          return (
+                            <p className="muted consumption-warning" key={`warning-${consumption.inventario_id}-${index}`}>
+                              {inventory.nombre} esta suspendido. Corrige la receta o selecciona otro inventario antes de cobrar.
+                            </p>
+                          )
+                        }
+
+                        if (inventory.cantidad_stock >= consumption.cantidad) return null
 
                         return (
                           <p className="muted consumption-warning" key={`warning-${consumption.inventario_id}-${index}`}>
