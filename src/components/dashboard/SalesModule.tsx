@@ -17,18 +17,27 @@ import { filterProducts } from "@/lib/dashboard/products"
 import {
   buildSaleItems,
   canChargeCart,
+  getDefaultInventoryConsumptions,
   getCartQuantity,
   getCartTotal,
   getLowStockCount,
   getMobileCartState,
+  getProductRecipeLabel,
+  getSaleAvailabilityLabel,
   getSaleStockLabel,
   getSaleStockState,
   getVisibleProductsLabel,
   quickCashValues
 } from "@/lib/dashboard/sales"
-import { fetchActiveSaleProducts } from "@/lib/data/products"
+import { fetchActiveInventoryItems, fetchActiveSaleProducts } from "@/lib/data/products"
 import { registerSale } from "@/lib/data/sales"
-import type { CartItem, MobileCartState, Product, RegisterSaleResult } from "@/types/app"
+import type {
+  CartItem,
+  MobileCartState,
+  Product,
+  RegisterSaleResult,
+  SaleInventoryConsumptionPayload
+} from "@/types/app"
 
 type SalesModuleProps = {
   restaurantId: string
@@ -48,6 +57,7 @@ export function SalesModule({
   onSaleCompleted
 }: SalesModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
+  const [inventoryItems, setInventoryItems] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [cashReceived, setCashReceived] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -61,15 +71,19 @@ export function SalesModule({
     setLoading(true)
     setError("")
 
-    const { data, error: loadError } = await fetchActiveSaleProducts()
+    const [
+      { data, error: loadError },
+      { data: inventoryData, error: inventoryError }
+    ] = await Promise.all([fetchActiveSaleProducts(), fetchActiveInventoryItems()])
 
-    if (loadError) {
-      setError(loadError.message)
+    if (loadError || inventoryError) {
+      setError(loadError?.message ?? inventoryError?.message ?? "No se pudieron cargar productos.")
       setLoading(false)
       return
     }
 
     setProducts((data ?? []) as Product[])
+    setInventoryItems((inventoryData ?? []) as Product[])
     setLoading(false)
   }, [])
 
@@ -128,6 +142,57 @@ export function SalesModule({
 
   function removeItem(productId: string) {
     setCart((current) => current.filter((item) => item.product.id !== productId))
+  }
+
+  function updateCartItem(productId: string, updater: (item: CartItem) => CartItem) {
+    setCart((current) => current.map((item) => (item.product.id === productId ? updater(item) : item)))
+  }
+
+  function updateItemNote(productId: string, note: string) {
+    updateCartItem(productId, (item) => ({ ...item, note }))
+  }
+
+  function getEditableConsumptions(item: CartItem) {
+    return item.inventoryConsumptions ?? getDefaultInventoryConsumptions(item.product, item.quantity)
+  }
+
+  function updateItemConsumption(productId: string, index: number, patch: Partial<SaleInventoryConsumptionPayload>) {
+    updateCartItem(productId, (item) => {
+      const consumptions = getEditableConsumptions(item)
+      return {
+        ...item,
+        inventoryConsumptions: consumptions.map((consumption, consumptionIndex) =>
+          consumptionIndex === index ? { ...consumption, ...patch } : consumption
+        )
+      }
+    })
+  }
+
+  function addItemConsumption(productId: string) {
+    updateCartItem(productId, (item) => {
+      const consumptions = getEditableConsumptions(item)
+      const nextInventoryId = inventoryItems.find(
+        (inventory) => !consumptions.some((consumption) => consumption.inventario_id === inventory.id)
+      )?.id
+
+      if (!nextInventoryId) return item
+
+      return {
+        ...item,
+        inventoryConsumptions: [...consumptions, { inventario_id: nextInventoryId, cantidad: 1 }]
+      }
+    })
+  }
+
+  function removeItemConsumption(productId: string, index: number) {
+    updateCartItem(productId, (item) => ({
+      ...item,
+      inventoryConsumptions: getEditableConsumptions(item).filter((_, consumptionIndex) => consumptionIndex !== index)
+    }))
+  }
+
+  function resetItemConsumptions(productId: string) {
+    updateCartItem(productId, (item) => ({ ...item, inventoryConsumptions: undefined }))
   }
 
   function clearCart() {
@@ -235,12 +300,13 @@ export function SalesModule({
                   <article className="sale-card" key={product.id}>
                     <div className="sale-card-topline">
                       <span className={`stock-badge ${stockState}`}>{stockLabel}</span>
-                      <span className="muted">{product.cantidad_stock} en stock</span>
+                      <span className="muted">{getSaleAvailabilityLabel(product)}</span>
                     </div>
 
                     <div className="product-name">
                       <h3>{product.nombre}</h3>
                       <p className="muted">{product.descripcion || product.tipo_unidad}</p>
+                      <p className="muted">{getProductRecipeLabel(product)}</p>
                     </div>
 
                     <footer>
@@ -252,7 +318,8 @@ export function SalesModule({
                         className="button primary add-sale-button"
                         type="button"
                         onClick={() => addToCart(product)}
-                        title={`Agregar ${product.nombre}`}
+                        disabled={stockState === "off"}
+                        title={stockState === "off" ? "Inventario asociado insuficiente" : `Agregar ${product.nombre}`}
                       >
                         <Plus size={18} />
                         Agregar
@@ -342,6 +409,7 @@ export function SalesModule({
       {isCheckoutOpen && (
         <CheckoutModal
           cart={cart}
+          inventoryItems={inventoryItems}
           cashReceived={cashReceived}
           cartTotal={cartTotal}
           change={change}
@@ -352,6 +420,11 @@ export function SalesModule({
           onDecrease={decreaseItem}
           onRemove={removeItem}
           onClear={clearCart}
+          onNoteChange={updateItemNote}
+          onConsumptionChange={updateItemConsumption}
+          onConsumptionAdd={addItemConsumption}
+          onConsumptionRemove={removeItemConsumption}
+          onConsumptionReset={resetItemConsumptions}
           onCashChange={setCashReceived}
           onCharge={handleCharge}
         />
@@ -362,6 +435,7 @@ export function SalesModule({
 
 function CheckoutModal({
   cart,
+  inventoryItems,
   cashReceived,
   cartTotal,
   change,
@@ -372,10 +446,16 @@ function CheckoutModal({
   onDecrease,
   onRemove,
   onClear,
+  onNoteChange,
+  onConsumptionChange,
+  onConsumptionAdd,
+  onConsumptionRemove,
+  onConsumptionReset,
   onCashChange,
   onCharge
 }: {
   cart: CartItem[]
+  inventoryItems: Product[]
   cashReceived: number
   cartTotal: number
   change: number
@@ -386,6 +466,11 @@ function CheckoutModal({
   onDecrease: (productId: string) => void
   onRemove: (productId: string) => void
   onClear: () => void
+  onNoteChange: (productId: string, note: string) => void
+  onConsumptionChange: (productId: string, index: number, patch: Partial<SaleInventoryConsumptionPayload>) => void
+  onConsumptionAdd: (productId: string) => void
+  onConsumptionRemove: (productId: string, index: number) => void
+  onConsumptionReset: (productId: string) => void
   onCashChange: (value: number) => void
   onCharge: () => void
 }) {
@@ -409,45 +494,121 @@ function CheckoutModal({
 
             <div className="cart-list checkout-list">
               {cart.length === 0 && <div className="empty-state">El carrito esta vacio.</div>}
-              {cart.map((item) => (
-                <article className="cart-row" key={item.product.id}>
-                  <div>
-                    <h3>{item.product.nombre}</h3>
-                    <p className="muted">
-                      {formatCurrency(item.product.precio)} x {item.quantity} = {" "}
-                      {formatCurrency(item.product.precio * item.quantity)}
-                    </p>
-                  </div>
+              {cart.map((item) => {
+                const consumptions = item.inventoryConsumptions ?? getDefaultInventoryConsumptions(item.product, item.quantity)
+                const isCustomConsumption = item.inventoryConsumptions !== undefined
 
-                  <div className="cart-actions">
-                    <button
-                      className="button subtle icon"
-                      type="button"
-                      onClick={() => onDecrease(item.product.id)}
-                      title="Restar unidad"
-                    >
-                      <Minus size={17} />
-                    </button>
-                    <div className="qty-box">{item.quantity}</div>
-                    <button
-                      className="button subtle icon"
-                      type="button"
-                      onClick={() => onAdd(item.product)}
-                      title="Sumar unidad"
-                    >
-                      <Plus size={17} />
-                    </button>
-                    <button
-                      className="button danger icon"
-                      type="button"
-                      onClick={() => onRemove(item.product.id)}
-                      title="Quitar producto"
-                    >
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-                </article>
-              ))}
+                return (
+                  <article className="cart-row checkout-cart-row" key={item.product.id}>
+                    <div>
+                      <h3>{item.product.nombre}</h3>
+                      <p className="muted">
+                        {formatCurrency(item.product.precio)} x {item.quantity} = {" "}
+                        {formatCurrency(item.product.precio * item.quantity)}
+                      </p>
+                    </div>
+
+                    <div className="cart-actions">
+                      <button
+                        className="button subtle icon"
+                        type="button"
+                        onClick={() => onDecrease(item.product.id)}
+                        title="Restar unidad"
+                      >
+                        <Minus size={17} />
+                      </button>
+                      <div className="qty-box">{item.quantity}</div>
+                      <button
+                        className="button subtle icon"
+                        type="button"
+                        onClick={() => onAdd(item.product)}
+                        title="Sumar unidad"
+                      >
+                        <Plus size={17} />
+                      </button>
+                      <button
+                        className="button danger icon"
+                        type="button"
+                        onClick={() => onRemove(item.product.id)}
+                        title="Quitar producto"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+
+                    <label className="field checkout-note-field">
+                      <span>Detalle opcional</span>
+                      <input
+                        value={item.note ?? ""}
+                        onChange={(event) => onNoteChange(item.product.id, event.target.value)}
+                        placeholder="Ej: sin salsa, promo, ajuste rapido"
+                      />
+                    </label>
+
+                    <div className="checkout-consumption">
+                      <div className="checkout-consumption-header">
+                        <div>
+                          <strong>Inventario usado</strong>
+                          <span>{isCustomConsumption ? "Ajustado manualmente" : "Segun receta configurada"}</span>
+                        </div>
+                        {isCustomConsumption && (
+                          <button className="button subtle" type="button" onClick={() => onConsumptionReset(item.product.id)}>
+                            Usar receta
+                          </button>
+                        )}
+                      </div>
+
+                      {consumptions.length === 0 && (
+                        <p className="muted">Este producto no descuenta inventario por defecto.</p>
+                      )}
+
+                      {consumptions.map((consumption, index) => (
+                        <div className="consumption-row" key={`${consumption.inventario_id}-${index}`}>
+                          <select
+                            value={consumption.inventario_id}
+                            onChange={(event) =>
+                              onConsumptionChange(item.product.id, index, { inventario_id: event.target.value })
+                            }
+                          >
+                            {inventoryItems.map((inventory) => (
+                              <option key={inventory.id} value={inventory.id}>
+                                {inventory.nombre} ({inventory.cantidad_stock} {inventory.tipo_unidad})
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            aria-label="Cantidad de inventario usada"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={consumption.cantidad}
+                            onChange={(event) =>
+                              onConsumptionChange(item.product.id, index, { cantidad: Number(event.target.value) })
+                            }
+                          />
+                          <button
+                            className="button danger icon"
+                            type="button"
+                            onClick={() => onConsumptionRemove(item.product.id, index)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        className="button subtle"
+                        type="button"
+                        onClick={() => onConsumptionAdd(item.product.id)}
+                        disabled={inventoryItems.length === 0}
+                      >
+                        <Plus size={17} />
+                        Agregar consumo
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
 
             {cart.length > 0 && (

@@ -331,6 +331,26 @@
   font-size: 0.9rem;
 }
 
+.history-detail {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.history-consumption-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.history-consumption-list span {
+  border-radius: 999px;
+  background: rgba(21, 94, 117, 0.08);
+  color: var(--brand-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.18rem 0.55rem;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -771,6 +791,76 @@
   padding-right: 4px;
 }
 
+.inventory-link-config,
+.recipe-builder,
+.checkout-consumption {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-link-config {
+  padding: 0.85rem;
+  border: 1px solid rgba(21, 94, 117, 0.14);
+  border-radius: 8px;
+  background: rgba(21, 94, 117, 0.04);
+}
+
+.compact-title h2 {
+  font-size: 0.95rem;
+}
+
+.recipe-row,
+.consumption-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(82px, 110px) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.recipe-row select,
+.recipe-row input,
+.consumption-row select,
+.consumption-row input,
+.checkout-note-field input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0 0.75rem;
+  color: var(--text);
+}
+
+.checkout-cart-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+}
+
+.checkout-note-field,
+.checkout-consumption {
+  grid-column: 1 / -1;
+}
+
+.checkout-note-field span,
+.checkout-consumption-header span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.checkout-consumption {
+  padding: 0.75rem;
+  border: 1px dashed rgba(21, 94, 117, 0.22);
+  border-radius: 8px;
+  background: rgba(246, 248, 244, 0.72);
+}
+
+.checkout-consumption-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+}
+
 @media (max-width: 980px) {
   .dashboard,
   .grid-two,
@@ -825,6 +915,12 @@
 
   .stock-controls {
     grid-template-columns: 1fr;
+  }
+
+  .recipe-row,
+  .consumption-row {
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 92px) auto;
+    gap: 0.45rem;
   }
 
   .expenses-module {

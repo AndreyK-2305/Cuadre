@@ -230,6 +230,34 @@ create table if not exists public.detalle_ventas (
   precio_unitario integer not null check (precio_unitario >= 0),
   cantidad integer not null check (cantidad > 0),
   subtotal integer not null check (subtotal >= 0),
+  nota text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.detalle_ventas
+add column if not exists nota text;
+
+create table if not exists public.producto_inventario_recetas (
+  id uuid primary key default gen_random_uuid(),
+  restaurante_id uuid references public.restaurantes(id) on delete cascade,
+  producto_id uuid not null references public.productos(id) on delete cascade,
+  inventario_id uuid not null references public.productos(id) on delete cascade,
+  cantidad integer not null default 1 check (cantidad > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (producto_id, inventario_id)
+);
+
+create table if not exists public.detalle_venta_inventario (
+  id uuid primary key default gen_random_uuid(),
+  venta_id uuid not null references public.ventas(id) on delete cascade,
+  detalle_venta_id uuid references public.detalle_ventas(id) on delete set null,
+  producto_id uuid references public.productos(id) on delete set null,
+  inventario_id uuid references public.productos(id) on delete set null,
+  inventario_nombre text not null,
+  cantidad integer not null check (cantidad > 0),
+  origen text not null default 'receta' check (origen in ('receta', 'manual')),
+  nota text,
   created_at timestamptz not null default now()
 );
 
@@ -258,6 +286,11 @@ create index if not exists idx_ventas_activas_fecha_dia on public.ventas(restaur
 create index if not exists idx_egresos_user_fecha_dia on public.egresos(user_id, fecha_dia desc);
 create index if not exists idx_egresos_activos_fecha_dia on public.egresos(restaurante_id, fecha_dia desc) where eliminado = false;
 create index if not exists idx_detalle_ventas_venta on public.detalle_ventas(venta_id);
+create index if not exists idx_producto_inventario_producto on public.producto_inventario_recetas(producto_id);
+create index if not exists idx_producto_inventario_inventario on public.producto_inventario_recetas(inventario_id);
+create index if not exists idx_producto_inventario_restaurante on public.producto_inventario_recetas(restaurante_id);
+create index if not exists idx_detalle_venta_inventario_venta on public.detalle_venta_inventario(venta_id);
+create index if not exists idx_detalle_venta_inventario_detalle on public.detalle_venta_inventario(detalle_venta_id);
 create index if not exists idx_movimientos_producto on public.movimientos_inventario(producto_id);
 create index if not exists idx_restaurantes_admin_email on public.restaurantes(lower(admin_email));
 create index if not exists idx_usuarios_restaurante on public.usuarios(restaurante_id);
@@ -393,6 +426,11 @@ drop trigger if exists trg_productos_plan_limit on public.productos;
 create trigger trg_productos_plan_limit
 before insert or update on public.productos
 for each row execute function public.enforce_product_plan_limit();
+
+drop trigger if exists trg_producto_inventario_recetas_updated_at on public.producto_inventario_recetas;
+create trigger trg_producto_inventario_recetas_updated_at
+before update on public.producto_inventario_recetas
+for each row execute function public.set_updated_at();
 
 drop trigger if exists trg_restaurantes_plan_access_limits on public.restaurantes;
 create trigger trg_restaurantes_plan_access_limits
@@ -573,9 +611,18 @@ declare
   v_total integer := 0;
   v_qty integer;
   v_product productos%rowtype;
+  v_inventory productos%rowtype;
   v_sale ventas%rowtype;
   v_item jsonb;
   v_product_id uuid;
+  v_detail_id uuid;
+  v_note text;
+  v_has_custom_consumptions boolean;
+  v_consumption jsonb;
+  v_inventory_id uuid;
+  v_consumption_qty integer;
+  v_consumption_note text;
+  v_recipe record;
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para registrar ventas';
@@ -665,6 +712,10 @@ begin
   for v_item in select value from jsonb_array_elements(p_items) as item(value) loop
     v_product_id := (v_item ->> 'producto_id')::uuid;
     v_qty := (v_item ->> 'cantidad')::integer;
+    v_note := nullif(btrim(coalesce(v_item ->> 'nota', '')), '');
+    v_has_custom_consumptions :=
+      v_item ? 'consumos'
+      and jsonb_typeof(v_item -> 'consumos') = 'array';
 
     select * into v_product
     from public.productos
@@ -678,7 +729,8 @@ begin
       producto_nombre,
       precio_unitario,
       cantidad,
-      subtotal
+      subtotal,
+      nota
     )
     values (
       v_sale.id,
@@ -686,8 +738,163 @@ begin
       v_product.nombre,
       v_product.precio,
       v_qty,
-      v_product.precio * v_qty
-    );
+      v_product.precio * v_qty,
+      v_note
+    )
+    returning id into v_detail_id;
+
+    if v_has_custom_consumptions then
+      for v_consumption in select value from jsonb_array_elements(v_item -> 'consumos') as consumption(value) loop
+        v_inventory_id := (v_consumption ->> 'inventario_id')::uuid;
+        v_consumption_qty := (v_consumption ->> 'cantidad')::integer;
+        v_consumption_note := nullif(btrim(coalesce(v_consumption ->> 'nota', '')), '');
+
+        if v_consumption_qty is null or v_consumption_qty <= 0 then
+          raise exception 'La cantidad de inventario consumido no es valida';
+        end if;
+
+        select * into v_inventory
+        from public.productos
+        where id = v_inventory_id
+          and restaurante_id = p_restaurante_id
+        for update;
+
+        if not found then
+          raise exception 'El inventario asociado no existe';
+        end if;
+
+        if not v_inventory.activo then
+          raise exception 'El inventario % esta deshabilitado', v_inventory.nombre;
+        end if;
+
+        if v_inventory.tipo_item <> 'inventario' then
+          raise exception '% no esta marcado como inventario', v_inventory.nombre;
+        end if;
+
+        if v_inventory.cantidad_stock < v_consumption_qty then
+          raise exception 'Inventario insuficiente para %', v_inventory.nombre;
+        end if;
+
+        update public.productos
+        set cantidad_stock = cantidad_stock - v_consumption_qty
+        where id = v_inventory.id;
+
+        insert into public.movimientos_inventario (
+          restaurante_id,
+          producto_id,
+          tipo_movimiento,
+          cantidad,
+          stock_antes,
+          stock_despues,
+          nota
+        )
+        values (
+          p_restaurante_id,
+          v_inventory.id,
+          'venta',
+          v_consumption_qty,
+          v_inventory.cantidad_stock,
+          v_inventory.cantidad_stock - v_consumption_qty,
+          coalesce(v_consumption_note, 'Consumo manual en venta ' || v_folio)
+        );
+
+        insert into public.detalle_venta_inventario (
+          venta_id,
+          detalle_venta_id,
+          producto_id,
+          inventario_id,
+          inventario_nombre,
+          cantidad,
+          origen,
+          nota
+        )
+        values (
+          v_sale.id,
+          v_detail_id,
+          v_product.id,
+          v_inventory.id,
+          v_inventory.nombre,
+          v_consumption_qty,
+          'manual',
+          v_consumption_note
+        );
+      end loop;
+    else
+      for v_recipe in
+        select receta.inventario_id, receta.cantidad, inventario.nombre
+        from public.producto_inventario_recetas receta
+        join public.productos inventario on inventario.id = receta.inventario_id
+        where receta.producto_id = v_product.id
+          and receta.restaurante_id = p_restaurante_id
+        order by inventario.nombre asc
+      loop
+        v_consumption_qty := v_recipe.cantidad * v_qty;
+
+        select * into v_inventory
+        from public.productos
+        where id = v_recipe.inventario_id
+          and restaurante_id = p_restaurante_id
+        for update;
+
+        if not found then
+          raise exception 'El inventario asociado no existe';
+        end if;
+
+        if not v_inventory.activo then
+          raise exception 'El inventario % esta deshabilitado', v_inventory.nombre;
+        end if;
+
+        if v_inventory.tipo_item <> 'inventario' then
+          raise exception '% no esta marcado como inventario', v_inventory.nombre;
+        end if;
+
+        if v_inventory.cantidad_stock < v_consumption_qty then
+          raise exception 'Inventario insuficiente para %', v_inventory.nombre;
+        end if;
+
+        update public.productos
+        set cantidad_stock = cantidad_stock - v_consumption_qty
+        where id = v_inventory.id;
+
+        insert into public.movimientos_inventario (
+          restaurante_id,
+          producto_id,
+          tipo_movimiento,
+          cantidad,
+          stock_antes,
+          stock_despues,
+          nota
+        )
+        values (
+          p_restaurante_id,
+          v_inventory.id,
+          'venta',
+          v_consumption_qty,
+          v_inventory.cantidad_stock,
+          v_inventory.cantidad_stock - v_consumption_qty,
+          'Consumo automatico por venta ' || v_folio
+        );
+
+        insert into public.detalle_venta_inventario (
+          venta_id,
+          detalle_venta_id,
+          producto_id,
+          inventario_id,
+          inventario_nombre,
+          cantidad,
+          origen
+        )
+        values (
+          v_sale.id,
+          v_detail_id,
+          v_product.id,
+          v_inventory.id,
+          v_inventory.nombre,
+          v_consumption_qty,
+          'receta'
+        );
+      end loop;
+    end if;
   end loop;
 
   return jsonb_build_object(
@@ -717,6 +924,9 @@ declare
   v_user uuid := auth.uid();
   v_restaurante_id uuid := public.current_restaurant_id();
   v_motivo text := btrim(coalesce(p_motivo, ''));
+  v_sale ventas%rowtype;
+  v_inventory productos%rowtype;
+  v_consumption record;
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para anular ventas';
@@ -739,11 +949,49 @@ begin
   where id = p_venta_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
-    and eliminado = false;
+    and eliminado = false
+  returning * into v_sale;
 
   if not found then
     raise exception 'No se encontro una venta activa para anular';
   end if;
+
+  for v_consumption in
+    select *
+    from public.detalle_venta_inventario
+    where venta_id = p_venta_id
+      and inventario_id is not null
+  loop
+    select * into v_inventory
+    from public.productos
+    where id = v_consumption.inventario_id
+    for update;
+
+    if found then
+      update public.productos
+      set cantidad_stock = cantidad_stock + v_consumption.cantidad
+      where id = v_inventory.id;
+
+      insert into public.movimientos_inventario (
+        restaurante_id,
+        producto_id,
+        tipo_movimiento,
+        cantidad,
+        stock_antes,
+        stock_despues,
+        nota
+      )
+      values (
+        v_sale.restaurante_id,
+        v_inventory.id,
+        'ajuste',
+        v_consumption.cantidad,
+        v_inventory.cantidad_stock,
+        v_inventory.cantidad_stock + v_consumption.cantidad,
+        'Reposicion por anulacion de venta ' || v_sale.folio_diario
+      );
+    end if;
+  end loop;
 end;
 $$;
 
@@ -805,6 +1053,9 @@ as $$
 declare
   v_user uuid := auth.uid();
   v_restaurante_id uuid := public.current_restaurant_id();
+  v_sale ventas%rowtype;
+  v_inventory productos%rowtype;
+  v_consumption record;
 begin
   if v_user is null then
     raise exception 'Debes iniciar sesion para restaurar ventas';
@@ -819,11 +1070,55 @@ begin
   where id = p_venta_id
     and (public.is_super_admin() or restaurante_id = v_restaurante_id)
     and (not public.current_user_is_employee() or fecha_dia = ((timezone('America/Bogota', now()))::date))
-    and eliminado = true;
+    and eliminado = true
+  returning * into v_sale;
 
   if not found then
     raise exception 'No se encontro una venta anulada para restaurar';
   end if;
+
+  for v_consumption in
+    select *
+    from public.detalle_venta_inventario
+    where venta_id = p_venta_id
+      and inventario_id is not null
+  loop
+    select * into v_inventory
+    from public.productos
+    where id = v_consumption.inventario_id
+    for update;
+
+    if not found then
+      raise exception 'El inventario asociado a la venta ya no existe';
+    end if;
+
+    if v_inventory.cantidad_stock < v_consumption.cantidad then
+      raise exception 'Inventario insuficiente para restaurar venta en %', v_inventory.nombre;
+    end if;
+
+    update public.productos
+    set cantidad_stock = cantidad_stock - v_consumption.cantidad
+    where id = v_inventory.id;
+
+    insert into public.movimientos_inventario (
+      restaurante_id,
+      producto_id,
+      tipo_movimiento,
+      cantidad,
+      stock_antes,
+      stock_despues,
+      nota
+    )
+    values (
+      v_sale.restaurante_id,
+      v_inventory.id,
+      'venta',
+      v_consumption.cantidad,
+      v_inventory.cantidad_stock,
+      v_inventory.cantidad_stock - v_consumption.cantidad,
+      'Consumo por restauracion de venta ' || v_sale.folio_diario
+    );
+  end loop;
 end;
 $$;
 
@@ -873,6 +1168,8 @@ alter table public.productos enable row level security;
 alter table public.ventas enable row level security;
 alter table public.egresos enable row level security;
 alter table public.detalle_ventas enable row level security;
+alter table public.producto_inventario_recetas enable row level security;
+alter table public.detalle_venta_inventario enable row level security;
 alter table public.movimientos_inventario enable row level security;
 
 drop policy if exists "Usuarios leen su perfil" on public.usuarios;
@@ -1098,6 +1395,63 @@ using (
     select 1
     from public.ventas
     where ventas.id = detalle_ventas.venta_id
+      and (public.is_super_admin() or ventas.restaurante_id = public.current_restaurant_id())
+      and (
+        public.is_super_admin()
+        or (
+          public.current_user_is_active()
+          and public.current_restaurant_is_active()
+          and public.current_user_can_read_report_date(ventas.fecha_dia)
+        )
+      )
+  )
+);
+
+drop policy if exists "Usuarios leen recetas de productos" on public.producto_inventario_recetas;
+create policy "Usuarios leen recetas de productos"
+on public.producto_inventario_recetas for select
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
+
+drop policy if exists "Administradores gestionan recetas de productos" on public.producto_inventario_recetas;
+create policy "Administradores gestionan recetas de productos"
+on public.producto_inventario_recetas for all
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+)
+with check (
+  public.is_super_admin()
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
+);
+
+drop policy if exists "Usuarios leen consumo de inventario en ventas" on public.detalle_venta_inventario;
+create policy "Usuarios leen consumo de inventario en ventas"
+on public.detalle_venta_inventario for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.ventas
+    where ventas.id = detalle_venta_inventario.venta_id
       and (public.is_super_admin() or ventas.restaurante_id = public.current_restaurant_id())
       and (
         public.is_super_admin()
