@@ -708,6 +708,11 @@ function summaryCardHtml(title: string, value: string, caption: string, tone: "p
 }
 
 function analyticsSectionHtml(analytics: AnalyticsData) {
+  const trendColor = COLORS.primary
+  const trendAccent = COLORS.accent
+  const productColor = COLORS.success
+  const trackColor = "#e7edf2"
+
   const trendRows = analytics.trendPoints.length > 0
     ? analytics.trendPoints
         .map((point) => {
@@ -729,28 +734,28 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
                           <td
                             class="chart-fill sales"
                             width="${salesWidth.toFixed(2)}%"
-                            bgcolor="${primaryColor}"
-                            style="background:${primaryColor};height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${trendColor}"
+                            style="background:${trendColor};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                           <td
                             class="chart-fill-rest"
                             width="${Math.max(0, 100 - salesWidth).toFixed(2)}%"
-                            bgcolor="#e7edf2"
-                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${trackColor}"
+                            style="background:${trackColor};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                         </tr>
                         <tr>
                           <td
                             class="chart-fill expenses"
                             width="${expensesWidth.toFixed(2)}%"
-                            bgcolor="${secondaryColor}"
-                            style="background:${secondaryColor};height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${trendAccent}"
+                            style="background:${trendAccent};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                           <td
                             class="chart-fill-rest"
                             width="${Math.max(0, 100 - expensesWidth).toFixed(2)}%"
-                            bgcolor="#e7edf2"
-                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${trackColor}"
+                            style="background:${trackColor};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                         </tr>
                       </tbody>
@@ -785,14 +790,14 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
                           <td
                             class="chart-fill product"
                             width="${width.toFixed(2)}%"
-                            bgcolor="${COLORS.success}"
-                            style="background:${COLORS.success};height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${productColor}"
+                            style="background:${productColor};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                           <td
                             class="chart-fill-rest"
                             width="${Math.max(0, 100 - width).toFixed(2)}%"
-                            bgcolor="#e7edf2"
-                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                            bgcolor="${trackColor}"
+                            style="background:${trackColor};height:12px;line-height:12px;font-size:1px;"
                           >&nbsp;</td>
                         </tr>
                       </tbody>
@@ -1063,11 +1068,12 @@ function renderAnalyticsPage(
   drawAnalyticsCard(page, rightX, secondRowY, cardWidth, cardHeight, "Balance neto", formatSignedCurrency(analytics.netResult), "Ventas menos egresos.", analytics.netResult >= 0 ? COLORS.success : COLORS.danger)
 
   const chartWidth = (PDF.width - PDF.marginX * 2 - PDF.gutter) / 2
-  const chartHeight = 226
+  const chartHeight = 250
+  const chartTopY = 414
   drawAnalyticsChart(
     page,
     leftX,
-    266,
+    chartTopY,
     chartWidth,
     chartHeight,
     "Tendencia por dia",
@@ -1086,7 +1092,7 @@ function renderAnalyticsPage(
   drawAnalyticsChart(
     page,
     rightX,
-    266,
+    chartTopY,
     chartWidth,
     chartHeight,
     "Productos con mayor salida",
