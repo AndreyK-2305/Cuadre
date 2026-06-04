@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
-import { Check, Edit3, Plus, Power, Search } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Edit3, Plus, Power, Search } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
 import { getPlanCapabilities, getProductLimitLabel } from "@/lib/planLimits"
 import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
@@ -49,6 +49,10 @@ export function InventoryModule({
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+  const [mobileSections, setMobileSections] = useState({
+    insumos: false,
+    productos: false
+  })
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -103,6 +107,13 @@ export function InventoryModule({
     setForm(emptyProductForm)
     setEditingId(null)
     setIsModalOpen(false)
+  }
+
+  function toggleMobileSection(section: "insumos" | "productos") {
+    setMobileSections((current) => ({
+      ...current,
+      [section]: !current[section]
+    }))
   }
 
   function sanitizeRecipes(recipes: ProductInventoryRecipePayload[]) {
@@ -471,9 +482,12 @@ export function InventoryModule({
       {!loading && (
         <div className="inventory-columns">
           <InventoryColumn
-            title="Inventarios"
-            emptyText="No hay articulos de inventario."
+            title="Insumos"
+            emptyText="No hay insumos registrados."
             items={inventoryItems}
+            sectionKey="insumos"
+            mobileExpanded={mobileSections.insumos}
+            onMobileToggle={() => toggleMobileSection("insumos")}
             stockInputs={stockInputs}
             onStockInputChange={(id, value) =>
               setStockInputs((current) => ({
@@ -491,6 +505,9 @@ export function InventoryModule({
             title="Productos"
             emptyText="No hay productos de venta."
             items={saleProducts}
+            sectionKey="productos"
+            mobileExpanded={mobileSections.productos}
+            onMobileToggle={() => toggleMobileSection("productos")}
             onEdit={editProduct}
             onToggle={handleToggleProduct}
             readOnly={readOnly}
@@ -517,6 +534,9 @@ function InventoryColumn({
   title,
   emptyText,
   items,
+  sectionKey,
+  mobileExpanded,
+  onMobileToggle,
   stockInputs,
   onStockInputChange,
   onAddStock,
@@ -527,6 +547,9 @@ function InventoryColumn({
   title: string
   emptyText: string
   items: Product[]
+  sectionKey: "insumos" | "productos"
+  mobileExpanded: boolean
+  onMobileToggle: () => void
   stockInputs: Record<string, string>
   onStockInputChange: (id: string, value: string) => void
   onAddStock: (product: Product) => void
@@ -535,60 +558,82 @@ function InventoryColumn({
   readOnly: boolean
 }) {
   return (
-    <section className="panel product-list">
-      <div className="column-heading">
-        <h2>{title}</h2>
-        <span className="badge">{items.length}</span>
+    <section className="panel product-list inventory-panel">
+      <div className="column-heading inventory-column-heading">
+        <button
+          className="inventory-mobile-toggle"
+          type="button"
+          onClick={onMobileToggle}
+          aria-expanded={mobileExpanded}
+          aria-controls={`inventory-body-${sectionKey}`}
+        >
+          <span className="inventory-column-title">
+            <strong>{title}</strong>
+            <small>{items.length} elementos</small>
+          </span>
+          <span className="inventory-mobile-toggle-icon" aria-hidden="true">
+            {mobileExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </span>
+        </button>
+        <div className="inventory-desktop-heading">
+          <h2>{title}</h2>
+          <span className="badge">{items.length}</span>
+        </div>
       </div>
 
-      {items.length === 0 && <div className="empty-state">{emptyText}</div>}
+      <div
+        id={`inventory-body-${sectionKey}`}
+        className={mobileExpanded ? "inventory-collapsible-body open" : "inventory-collapsible-body"}
+      >
+        {items.length === 0 && <div className="empty-state">{emptyText}</div>}
 
-      {items.map((item) => (
-        <article className="product-row compact" key={item.id}>
-          <div className="product-list">
-            <ProductHeading product={item} />
-            {item.descripcion && <p className="muted">{item.descripcion}</p>}
-            <div className="product-meta">
-              <span>
-                Stock: <strong>{item.cantidad_stock}</strong> {item.tipo_unidad}
-              </span>
+        {items.map((item) => (
+          <article className="product-row compact" key={item.id}>
+            <div className="product-list">
+              <ProductHeading product={item} />
+              {item.descripcion && <p className="muted">{item.descripcion}</p>}
+              <div className="product-meta">
+                <span>
+                  Stock: <strong>{item.cantidad_stock}</strong> {item.tipo_unidad}
+                </span>
+              </div>
+              {!readOnly && (
+                <div className="actions-row">
+                  <button className="button subtle" type="button" onClick={() => onEdit(item)}>
+                    <Edit3 size={16} />
+                    Editar
+                  </button>
+                  <button
+                    className={`button ${item.activo ? "warn" : "mint"}`}
+                    type="button"
+                    onClick={() => onToggle(item)}
+                  >
+                    <Power size={16} />
+                    {item.activo ? "Suspender" : "Habilitar"}
+                  </button>
+                </div>
+              )}
             </div>
+
             {!readOnly && (
-              <div className="actions-row">
-                <button className="button subtle" type="button" onClick={() => onEdit(item)}>
-                  <Edit3 size={16} />
-                  Editar
-                </button>
-                <button
-                  className={`button ${item.activo ? "warn" : "mint"}`}
-                  type="button"
-                  onClick={() => onToggle(item)}
-                >
-                  <Power size={16} />
-                  {item.activo ? "Suspender" : "Habilitar"}
+              <div className="stock-controls">
+                <input
+                  aria-label={`Cantidad para sumar a ${item.nombre}`}
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={stockInputs[item.id] ?? ""}
+                  onChange={(event) => onStockInputChange(item.id, event.target.value)}
+                  placeholder="+ cant."
+                />
+                <button className="button mint icon" type="button" onClick={() => onAddStock(item)}>
+                  <Plus size={18} />
                 </button>
               </div>
             )}
-          </div>
-
-          {!readOnly && (
-            <div className="stock-controls">
-              <input
-                aria-label={`Cantidad para sumar a ${item.nombre}`}
-                type="number"
-                min="1"
-                step="1"
-                value={stockInputs[item.id] ?? ""}
-                onChange={(event) => onStockInputChange(item.id, event.target.value)}
-                placeholder="+ cant."
-              />
-              <button className="button mint icon" type="button" onClick={() => onAddStock(item)}>
-                <Plus size={18} />
-              </button>
-            </div>
-          )}
-        </article>
-      ))}
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -597,6 +642,9 @@ function ProductColumn({
   title,
   emptyText,
   items,
+  sectionKey,
+  mobileExpanded,
+  onMobileToggle,
   onEdit,
   onToggle,
   readOnly
@@ -604,57 +652,82 @@ function ProductColumn({
   title: string
   emptyText: string
   items: Product[]
+  sectionKey: "insumos" | "productos"
+  mobileExpanded: boolean
+  onMobileToggle: () => void
   onEdit: (product: Product) => void
   onToggle: (product: Product) => void
   readOnly: boolean
 }) {
   return (
-    <section className="panel product-list">
-      <div className="column-heading">
-        <h2>{title}</h2>
-        <span className="badge">{items.length}</span>
+    <section className="panel product-list inventory-panel">
+      <div className="column-heading inventory-column-heading">
+        <button
+          className="inventory-mobile-toggle"
+          type="button"
+          onClick={onMobileToggle}
+          aria-expanded={mobileExpanded}
+          aria-controls={`inventory-body-${sectionKey}`}
+        >
+          <span className="inventory-column-title">
+            <strong>{title}</strong>
+            <small>{items.length} elementos</small>
+          </span>
+          <span className="inventory-mobile-toggle-icon" aria-hidden="true">
+            {mobileExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </span>
+        </button>
+        <div className="inventory-desktop-heading">
+          <h2>{title}</h2>
+          <span className="badge">{items.length}</span>
+        </div>
       </div>
 
-      {items.length === 0 && <div className="empty-state">{emptyText}</div>}
+      <div
+        id={`inventory-body-${sectionKey}`}
+        className={mobileExpanded ? "inventory-collapsible-body open" : "inventory-collapsible-body"}
+      >
+        {items.length === 0 && <div className="empty-state">{emptyText}</div>}
 
-      {items.map((item) => (
-        <article className="product-row compact" key={item.id}>
-          <div className="product-list">
-            <ProductHeading product={item} />
-            {item.descripcion && <p className="muted">{item.descripcion}</p>}
-            <p className="muted">{formatProductRecipeSummary(item)}</p>
-            <div className="product-meta">
-              <span>{formatCurrency(item.precio)}</span>
-              <span>{item.tipo_unidad}</span>
-            </div>
-            {!readOnly && (
-              <div className="actions-row">
-                <button className="button subtle" type="button" onClick={() => onEdit(item)}>
-                  <Edit3 size={16} />
-                  Editar
-                </button>
-                <button
-                  className={`button ${item.activo ? "warn" : "mint"}`}
-                  type="button"
-                  onClick={() => onToggle(item)}
-                >
-                  <Power size={16} />
-                  {item.activo ? "Suspender" : "Habilitar"}
-                </button>
+        {items.map((item) => (
+          <article className="product-row compact" key={item.id}>
+            <div className="product-list">
+              <ProductHeading product={item} />
+              {item.descripcion && <p className="muted">{item.descripcion}</p>}
+              <p className="muted">{formatProductRecipeSummary(item)}</p>
+              <div className="product-meta">
+                <span>{formatCurrency(item.precio)}</span>
+                <span>{item.tipo_unidad}</span>
               </div>
-            )}
-          </div>
-        </article>
-      ))}
+              {!readOnly && (
+                <div className="actions-row">
+                  <button className="button subtle" type="button" onClick={() => onEdit(item)}>
+                    <Edit3 size={16} />
+                    Editar
+                  </button>
+                  <button
+                    className={`button ${item.activo ? "warn" : "mint"}`}
+                    type="button"
+                    onClick={() => onToggle(item)}
+                  >
+                    <Power size={16} />
+                    {item.activo ? "Suspender" : "Habilitar"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
 
 function formatProductRecipeSummary(product: Product) {
   const recipes = product.producto_inventario_recetas ?? []
-  if (recipes.length === 0) return "No descuenta inventario al vender."
-  if (recipes.length === 1) return "Descuenta 1 inventario asociado."
-  return `Descuenta ${recipes.length} inventarios asociados.`
+  if (recipes.length === 0) return "No descuenta insumos al vender."
+  if (recipes.length === 1) return "Descuenta 1 insumo asociado."
+  return `Descuenta ${recipes.length} insumos asociados.`
 }
 
 function ProductHeading({ product }: { product: Product }) {
@@ -686,7 +759,7 @@ function ProductModal({
   onChange: <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => void
 }) {
   const isProduct = form.tipo_item === "producto"
-  const availableInventoryItems = inventoryItems.filter((item) => item.activo)
+  const availableInventoryItems = inventoryItems
 
   function addRecipeRow() {
     const firstInventoryId = availableInventoryItems.find(
@@ -807,17 +880,17 @@ function ProductModal({
 
         {isProduct && (
           <section className="inventory-link-config">
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={form.trackInventory}
-                onChange={(event) => onChange("trackInventory", event.target.checked)}
-              />
-              <span>
-                <strong>Descontar inventario al vender</strong>
-                <small>Opcional. Puedes usar recetas o ajustar el consumo en caja.</small>
-              </span>
-            </label>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={form.trackInventory}
+                  onChange={(event) => onChange("trackInventory", event.target.checked)}
+                />
+                <span>
+                  <strong>Descontar insumos al vender</strong>
+                  <small>Opcional. Puedes usar recetas o ajustar el consumo en caja.</small>
+                </span>
+              </label>
 
             {form.trackInventory && !editing && (
               <label className="check-row">
@@ -872,7 +945,7 @@ function ProductModal({
             {form.trackInventory && (
               <div className="recipe-builder">
                 <div className="section-title compact-title">
-                  <h2>Inventario asociado</h2>
+                  <h2>Insumos asociados</h2>
                   <p>Cantidades que se descuentan por cada unidad vendida.</p>
                 </div>
 
@@ -884,7 +957,8 @@ function ProductModal({
                     >
                       {availableInventoryItems.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.nombre} ({item.cantidad_stock} {item.tipo_unidad})
+                          {item.nombre} ({item.cantidad_stock} {item.tipo_unidad}
+                          {!item.activo ? " - suspendido" : ""})
                         </option>
                       ))}
                     </select>
@@ -912,7 +986,7 @@ function ProductModal({
                   Asociar inventario existente
                 </button>
                 {availableInventoryItems.length === 0 && (
-                  <p className="muted">Aun no hay inventarios activos para asociar.</p>
+                  <p className="muted">Aun no hay insumos registrados para asociar.</p>
                 )}
               </div>
             )}
