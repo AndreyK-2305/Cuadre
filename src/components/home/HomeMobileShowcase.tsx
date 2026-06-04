@@ -58,7 +58,7 @@ export function HomeMobileShowcase() {
             src={desktopDesignSrc}
             alt="Vista de escritorio de Cuadre"
             fill
-            sizes="(min-width: 981px) 720px, 100vw"
+            sizes="(min-width: 981px) 1080px, 100vw"
             priority={false}
           />
         </div>
