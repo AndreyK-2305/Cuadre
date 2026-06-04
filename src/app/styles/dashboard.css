@@ -843,6 +843,101 @@
   align-items: start;
 }
 
+.advanced-report-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.advanced-summary-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.advanced-charts-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
+
+.advanced-report-panel .metric {
+  min-width: 0;
+}
+
+.advanced-bars {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.advanced-bar-row {
+  display: grid;
+  gap: 8px;
+}
+
+.advanced-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.advanced-bar-labels strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.advanced-bar-labels span {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.advanced-bar-track {
+  position: relative;
+  min-height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(21, 94, 117, 0.06), rgba(21, 94, 117, 0.025));
+  border: 1px solid rgba(21, 94, 117, 0.1);
+}
+
+.advanced-bar {
+  position: absolute;
+  left: 0;
+  border-radius: inherit;
+}
+
+.advanced-bar.sales {
+  top: 2px;
+  height: 8px;
+  background: linear-gradient(90deg, var(--dashboard-accent), color-mix(in srgb, var(--dashboard-accent) 74%, #0f172a));
+  box-shadow: 0 6px 14px rgba(21, 94, 117, 0.18);
+}
+
+.advanced-bar.expenses {
+  bottom: 2px;
+  height: 6px;
+  background: linear-gradient(90deg, var(--dashboard-warm), color-mix(in srgb, var(--dashboard-warm) 72%, #9a3412));
+  box-shadow: 0 4px 10px rgba(201, 149, 42, 0.18);
+}
+
+.advanced-bar.product {
+  inset: 2px 0 2px 0;
+  background: linear-gradient(90deg, #1d8f55, color-mix(in srgb, #1d8f55 76%, #c7f1d7));
+  box-shadow: 0 6px 14px rgba(29, 143, 85, 0.16);
+}
+
+.advanced-chart .analytics-chart-title {
+  margin-bottom: 14px;
+}
+
 .history-row,
 .stock-row {
   padding: 14px;

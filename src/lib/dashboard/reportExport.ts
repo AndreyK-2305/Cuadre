@@ -1088,9 +1088,17 @@ function drawAnalyticsChart(
   drawText(page, x + 12, y - 22, title, 11, "F2", COLORS.primaryDark)
   drawText(page, x + 12, y - 38, subtitle, 8.8, "F1", COLORS.muted)
 
-  const contentTop = y - 54
-  const rowGap = mode === "trend" ? 28 : 30
-  const rowHeight = mode === "trend" ? 18 : 16
+  const legendY = y - 53
+  drawRect(page, x + 12, legendY - 8, 8, 8, primaryColor, primaryColor)
+  drawText(page, x + 24, legendY, mode === "trend" ? "Ventas" : "Unidades", 8.1, "F1", COLORS.muted)
+  if (mode === "trend") {
+    drawRect(page, x + 78, legendY - 8, 8, 8, secondaryColor, secondaryColor)
+    drawText(page, x + 90, legendY, "Egresos", 8.1, "F1", COLORS.muted)
+  }
+
+  const contentTop = y - 72
+  const rowGap = mode === "trend" ? 31 : 30
+  const rowHeight = mode === "trend" ? 20 : 16
   const barAreaWidth = width - 40
   let cursorY = contentTop
 
@@ -1103,16 +1111,16 @@ function drawAnalyticsChart(
     drawText(page, x + 12, cursorY, row.label, 8.8, "F2", COLORS.text)
     const normalized = Math.max(0.08, row.value / Math.max(1, maxValue))
     const barWidth = Math.max(14, barAreaWidth * normalized)
-    drawRect(page, x + 12, cursorY - 11, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
+    drawRect(page, x + 12, cursorY - 12, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
 
     if (mode === "trend") {
       const salesWidth = Math.max(8, barAreaWidth * Math.max(0.06, (row.sales ?? 0) / Math.max(1, maxValue)))
       const expensesWidth = Math.max(6, barAreaWidth * Math.max(0.04, (row.expenses ?? 0) / Math.max(1, maxValue)))
-      drawRect(page, x + 12, cursorY - 11, salesWidth, rowHeight / 2 - 1, primaryColor)
-      drawRect(page, x + 12, cursorY - 4, expensesWidth, rowHeight / 2 - 1, secondaryColor)
+      drawRect(page, x + 12, cursorY - 11, salesWidth, 8, primaryColor)
+      drawRect(page, x + 12, cursorY - 1, expensesWidth, 7, secondaryColor)
       drawText(page, x + width - 74, cursorY, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 8.2, "F2", COLORS.muted)
     } else {
-      drawRect(page, x + 12, cursorY - 11, barWidth, rowHeight, primaryColor)
+      drawRect(page, x + 12, cursorY - 11, barWidth, rowHeight - 2, primaryColor)
       drawText(page, x + width - 66, cursorY, `${row.quantity ?? row.value}`, 8.2, "F2", COLORS.white)
     }
 
@@ -1400,7 +1408,7 @@ function drawText(
   page.ops.push(`${toPdfColor(color)} rg`)
   page.ops.push(`/${font} ${size} Tf`)
   page.ops.push(`1 0 0 1 ${x} ${y} Tm`)
-  page.ops.push(`(${escapePdfText(text)}) Tj`)
+  page.ops.push(`(${escapePdfText(sanitizePdfText(text))}) Tj`)
   page.ops.push("Q")
 }
 
@@ -1423,4 +1431,16 @@ function escapeHtml(value: string) {
 
 function escapePdfText(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")
+}
+
+function sanitizePdfText(value: string) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u00A0\u202F]/g, " ")
+    .replace(/[·•]/g, "-")
+    .replace(/[–—]/g, "-")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }

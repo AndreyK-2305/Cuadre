@@ -599,14 +599,7 @@ export function ReportsModule({
                 <p>Disponibles en los planes Completo y Emprendedor para lectura y comparacion rapida.</p>
               </div>
 
-              <div
-                className="advanced-summary-grid"
-                style={{
-                  display: "grid",
-                  gap: "1rem",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))"
-                }}
-              >
+              <div className="advanced-summary-grid">
                 <article className="metric">
                   <span>Ticket promedio</span>
                   <strong>{formatCurrency(averageTicket)}</strong>
@@ -629,15 +622,8 @@ export function ReportsModule({
                 </article>
               </div>
 
-              <div
-                className="advanced-charts-grid"
-                style={{
-                  display: "grid",
-                  gap: "1rem",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))"
-                }}
-              >
-                <article className="metric">
+              <div className="advanced-charts-grid">
+                <article className="metric advanced-chart">
                   <span>
                     <BarChart3 size={16} aria-hidden="true" />
                     Grafico de tendencia
@@ -669,7 +655,7 @@ export function ReportsModule({
                   )}
                 </article>
 
-                <article className="metric">
+                <article className="metric advanced-chart">
                   <span>
                     <BarChart3 size={16} aria-hidden="true" />
                     Grafico de productos
@@ -721,7 +707,7 @@ export function ReportsModule({
                   <div className="total-line">
                     <strong>{formatCurrency(sale.total)}</strong>
                     <span className="muted">
-                      Recibido {formatCurrency(sale.dinero_recibido)} · Cambio {formatCurrency(sale.cambio)}
+                      Recibido {formatCurrency(sale.dinero_recibido)} - Cambio {formatCurrency(sale.cambio)}
                     </span>
                   </div>
                   <SaleDetails details={sale.detalle_ventas ?? []} />
@@ -837,7 +823,7 @@ export function ReportsModule({
                 <div className="section-title">
                   <h2>Inventario general</h2>
                   <p>
-                    {inventoryTotal} unidades de inventario · {saleProducts.length} productos ·{" "}
+                    {inventoryTotal} unidades de inventario - {saleProducts.length} productos -{" "}
                     {suspendedProducts} suspendidos
                   </p>
                 </div>
@@ -881,7 +867,7 @@ export function ReportsModule({
                   <div>
                     <strong>{product.nombre}</strong>
                     <div className="muted">
-                      {product.tipo_unidad} · {product.activo ? "Activo" : "Suspendido"}
+                      {product.tipo_unidad} - {product.activo ? "Activo" : "Suspendido"}
                     </div>
                   </div>
                   <span className={`badge ${product.activo ? "active" : "off"}`}>
