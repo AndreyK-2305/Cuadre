@@ -1,11 +1,13 @@
 "use client"
 
-import { FormEvent, useCallback, useEffect, useState } from "react"
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Home, LogIn, ShieldCheck } from "lucide-react"
+import { WhatsAppContactCard } from "@/components/ui/WhatsAppContactCard"
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client"
 import { fetchCurrentUserProfile } from "@/lib/data/restaurants"
+import { buildLoginWhatsappHref } from "@/lib/whatsapp"
 
 type PasswordMode = "unknown" | "signin" | "setup"
 type LoginPurpose = "operator" | "admin"
@@ -24,6 +26,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+  const whatsappHref = useMemo(() => buildLoginWhatsappHref(email), [email])
 
   const routeAuthenticatedUser = useCallback(async () => {
     const { data: profile, error: profileError } = await fetchCurrentUserProfile()
@@ -169,12 +172,20 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
 
     setLoading(true)
     const response = await fetch(`/api/auth/admin-password?email=${encodeURIComponent(normalizedEmail)}`)
-    const body = await response.json().catch(() => null) as { isAuthorized?: boolean; passwordPending?: boolean } | null
+    const body = await response.json().catch(() => null) as {
+      isAuthorized?: boolean
+      passwordPending?: boolean
+      accessState?: "authorized" | "inactive" | "not_registered"
+    } | null
     setLoading(false)
 
     if (!body?.isAuthorized) {
       setPasswordMode("unknown")
-      setError("Correo no activado.")
+      setError(
+        body?.accessState === "not_registered" && !isAdminLogin
+          ? "Aun no has registrado tu emprendimiento."
+          : "Correo no activado."
+      )
       return
     }
 
@@ -224,7 +235,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
               type="email"
               value={email}
               onChange={(event) => handleEmailChange(event.target.value)}
-              placeholder="admin@cuadre.app"
+              placeholder="correo@tuemprendimiento.com"
               autoComplete="email"
               required
             />
@@ -260,6 +271,13 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
           </Link>
         </form>
       </section>
+
+      <WhatsAppContactCard
+        href={whatsappHref}
+        note="Solicitar activacion de cuenta"
+        title="Contactar con ventas"
+        subtitle="Escribe para registrar tu negocio"
+      />
     </main>
   )
 }

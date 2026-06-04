@@ -863,11 +863,25 @@ function SaleDetails({ details }: { details: SaleItem[] }) {
   return (
     <div className="history-list">
       {details.map((detail) => (
-        <div className="history-meta" key={detail.id}>
-          <span>
-            {detail.cantidad} x {detail.producto_nombre}
-          </span>
-          <strong>{formatCurrency(detail.subtotal)}</strong>
+        <div className="history-detail" key={detail.id}>
+          <div className="history-meta">
+            <span>
+              {detail.cantidad} x {detail.producto_nombre}
+            </span>
+            <strong>{formatCurrency(detail.subtotal)}</strong>
+          </div>
+          {detail.nota && <p className="muted">{detail.nota}</p>}
+          {detail.detalle_venta_inventario && detail.detalle_venta_inventario.length > 0 && (
+            <div className="history-consumption-list">
+              {detail.detalle_venta_inventario.map((consumption) => (
+                <span className={consumption.advertencia ? "warning" : ""} key={consumption.id}>
+                  {consumption.inventario_nombre}: {consumption.cantidad}{" "}
+                  {consumption.origen === "manual" ? "(no se siguio la receta)" : "(receta)"}
+                  {consumption.advertencia ? ` - ${consumption.advertencia}` : ""}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

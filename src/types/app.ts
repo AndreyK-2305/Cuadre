@@ -22,6 +22,7 @@ export type Announcement = {
   target_type: AnnouncementTargetType
   target_restaurante_ids: string[]
   target_plan: SubscriptionLevel | null
+  priority: number
   activo: boolean
   created_at: string
 }
@@ -98,12 +99,29 @@ export type Product = {
   activo: boolean
   created_at: string
   updated_at: string
+  producto_inventario_recetas?: ProductInventoryRecipe[]
 }
 
 export type ProductWritePayload = Pick<
   Product,
   "nombre" | "descripcion" | "tipo_item" | "precio" | "cantidad_stock" | "tipo_unidad"
 >
+
+export type ProductInventoryRecipe = {
+  id: string
+  restaurante_id: string
+  producto_id: string
+  inventario_id: string
+  cantidad: number
+  created_at: string
+  updated_at: string
+  inventario?: Product | null
+}
+
+export type ProductInventoryRecipePayload = {
+  inventario_id: string
+  cantidad: number
+}
 
 export type InventoryMovementType = "entrada" | "venta" | "ajuste" | "deshabilitado"
 
@@ -148,6 +166,22 @@ export type SaleItem = {
   precio_unitario: number
   cantidad: number
   subtotal: number
+  nota: string | null
+  detalle_venta_inventario?: SaleInventoryConsumption[]
+}
+
+export type SaleInventoryConsumption = {
+  id: string
+  venta_id: string
+  detalle_venta_id: string | null
+  producto_id: string | null
+  inventario_id: string | null
+  inventario_nombre: string
+  cantidad: number
+  origen: "receta" | "manual"
+  nota: string | null
+  advertencia: string | null
+  created_at: string
 }
 
 export type Sale = {
@@ -170,6 +204,14 @@ export type Sale = {
 export type CartItem = {
   product: Product
   quantity: number
+  note?: string
+  inventoryConsumptions?: SaleInventoryConsumptionPayload[]
+}
+
+export type SaleInventoryConsumptionPayload = {
+  inventario_id: string
+  cantidad: number
+  nota?: string
 }
 
 export type MobileCartState = {
@@ -186,4 +228,5 @@ export type RegisterSaleResult = {
   total: number
   dinero_recibido: number
   cambio: number
+  advertencias?: string[]
 }

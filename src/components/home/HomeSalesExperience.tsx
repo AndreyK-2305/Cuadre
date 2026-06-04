@@ -7,10 +7,11 @@ import {
   CheckCircle2,
   HeartHandshake,
   MessageCircle,
-  PhoneCall,
   XCircle,
 } from "lucide-react"
 import { buildPlanWhatsappHref, defaultPublicPlanName, getPublicPlan, publicPlans } from "@/lib/plans"
+import { WhatsAppContactCard } from "@/components/ui/WhatsAppContactCard"
+import { HomeMobileShowcase } from "./HomeMobileShowcase"
 import { HomeSectionHeading } from "./HomeSectionHeading"
 
 export function HomeSalesExperience({ children }: { children: ReactNode }) {
@@ -20,6 +21,8 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <HomeMobileShowcase />
+
       <section className="landing-band landing-plans" id="planes">
         <HomeSectionHeading
           eyebrow="Planes competitivos"
@@ -154,19 +157,12 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
 
       <span className="landing-page-end-sentinel" id="page-end" aria-hidden="true" />
 
-      <a className="whatsapp-sales-card" href={whatsappHref} target="_blank" rel="noreferrer">
-        <span className="whatsapp-sales-note">Para cualquier pregunta adicional, estamos aquí.</span>
-        <span className="whatsapp-sales-box">
-          <span className="whatsapp-sales-icon">
-            <PhoneCall size={28} />
-          </span>
-          <span className="whatsapp-sales-copy">
-            <strong>Contactar con ventas</strong>
-            <span>Consultar plan {selectedPlan.name}</span>
-          </span>
-          <MessageCircle className="whatsapp-sales-mark" size={18} />
-        </span>
-      </a>
+      <WhatsAppContactCard
+        href={whatsappHref}
+        note="Para cualquier pregunta adicional, estamos aquí."
+        title="Contactar con ventas"
+        subtitle={`Consultar plan ${selectedPlan.name}`}
+      />
     </>
   )
 }

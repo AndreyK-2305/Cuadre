@@ -7,7 +7,12 @@ type DataResponse<T> = {
 }
 
 export function fetchAdminAnnouncements() {
-  return supabase.from("avisos_admin").select("*").order("created_at", { ascending: false }).limit(100)
+  return supabase
+    .from("avisos_admin")
+    .select("*")
+    .order("priority", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(100)
 }
 
 export function createAnnouncement(payload: AnnouncementCreatePayload) {
@@ -18,6 +23,15 @@ export function createAnnouncement(payload: AnnouncementCreatePayload) {
       target_restaurante_ids: payload.target_type === "restaurants" ? payload.target_restaurante_ids : [],
       target_plan: payload.target_type === "plan" ? payload.target_plan : null
     })
+    .select("*")
+    .single()
+}
+
+export function cancelAnnouncement(announcementId: string) {
+  return supabase
+    .from("avisos_admin")
+    .update({ activo: false })
+    .eq("id", announcementId)
     .select("*")
     .single()
 }
@@ -37,6 +51,7 @@ export async function fetchPendingAnnouncements(): Promise<DataResponse<Announce
     .from("avisos_admin")
     .select("*")
     .eq("activo", true)
+    .order("priority", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(20)
 

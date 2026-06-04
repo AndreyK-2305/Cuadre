@@ -193,7 +193,6 @@ export function DashboardShell() {
     const restaurant = profile.restaurante
     const currentPlan = planByLevel.get(restaurant.nivel_suscripcion)
     const planName = currentPlan?.nombre ?? restaurant.nivel_suscripcion
-    const paymentValue = currentPlan && currentPlan.precio > 0 ? formatCurrency(currentPlan.precio) : "A medida"
 
     if (restaurant.nivel_suscripcion === "Gratis") {
       return {
@@ -204,6 +203,10 @@ export function DashboardShell() {
       }
     }
 
+    if (!currentPlan || currentPlan.precio <= 0) return null
+    if (isWithinInitialBillingGracePeriod(restaurant.created_at, 30)) return null
+
+    const paymentValue = formatCurrency(currentPlan.precio)
     const daysUntilPayment = getMonthlyPaymentDaysRemaining(restaurant.fecha_suscripcion)
 
     if (daysUntilPayment < 0 || daysUntilPayment > 3) return null
@@ -604,4 +607,15 @@ function getMonthlyPaymentDaysRemaining(subscriptionDate: string) {
   const differenceMs = dueDate.getTime() - todayStart.getTime()
 
   return Math.ceil(differenceMs / 86_400_000)
+}
+
+function isWithinInitialBillingGracePeriod(createdAt: string, graceDays: number) {
+  const createdDate = new Date(createdAt)
+
+  if (Number.isNaN(createdDate.getTime())) return true
+
+  const today = new Date()
+  const elapsedMs = today.getTime() - createdDate.getTime()
+
+  return elapsedMs < graceDays * 86_400_000
 }

@@ -1,4 +1,4 @@
-import type { Product, ProductWritePayload } from "@/types/app"
+import type { Product, ProductInventoryRecipePayload, ProductWritePayload } from "@/types/app"
 
 export type ProductForm = {
   nombre: string
@@ -7,6 +7,12 @@ export type ProductForm = {
   precio: string
   cantidad_stock: string
   tipo_unidad: string
+  trackInventory: boolean
+  createLinkedInventory: boolean
+  linkedInventoryStock: string
+  linkedInventoryUnit: string
+  linkedConsumptionQty: string
+  recipes: ProductInventoryRecipePayload[]
 }
 
 export const emptyProductForm: ProductForm = {
@@ -15,7 +21,13 @@ export const emptyProductForm: ProductForm = {
   tipo_item: "producto",
   precio: "",
   cantidad_stock: "0",
-  tipo_unidad: "unidad"
+  tipo_unidad: "unidad",
+  trackInventory: false,
+  createLinkedInventory: false,
+  linkedInventoryStock: "0",
+  linkedInventoryUnit: "unidad",
+  linkedConsumptionQty: "1",
+  recipes: []
 }
 
 export function getProductSearchText(product: Product) {
@@ -47,6 +59,13 @@ export function buildProductPayload(form: ProductForm): ProductWritePayload {
     cantidad_stock: isInventoryItem ? Number(form.cantidad_stock) : 0,
     tipo_unidad: form.tipo_unidad.trim() || "unidad"
   }
+}
+
+export function getProductRecipes(product: Product): ProductInventoryRecipePayload[] {
+  return (product.producto_inventario_recetas ?? []).map((recipe) => ({
+    inventario_id: recipe.inventario_id,
+    cantidad: recipe.cantidad
+  }))
 }
 
 export function getProductSavedNotice(product: Product) {

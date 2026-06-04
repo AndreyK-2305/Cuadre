@@ -1,8 +1,11 @@
 import { supabase } from "@/lib/supabase/client"
+import type { SaleInventoryConsumptionPayload } from "@/types/app"
 
 export type SaleRegistrationItem = {
   producto_id: string
   cantidad: number
+  nota?: string
+  consumos?: SaleInventoryConsumptionPayload[]
 }
 
 export function registerSale(items: SaleRegistrationItem[], cashReceived: number, restaurantId: string) {
@@ -30,7 +33,7 @@ export function createSalesReportQuery(dateFrom: string, dateTo: string, restaur
   let salesQuery = supabase
     .from("ventas")
     .select(
-      "id, restaurante_id, user_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
+      "id, restaurante_id, user_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*, detalle_venta_inventario(*))"
     )
     .eq("eliminado", false)
     .order("fecha", { ascending: false })
@@ -55,7 +58,7 @@ export function createVoidedSalesReportQuery(dateFrom: string, dateTo: string, r
   let salesQuery = supabase
     .from("ventas")
     .select(
-      "id, restaurante_id, user_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*)"
+      "id, restaurante_id, user_id, folio_diario, fecha, fecha_dia, total, dinero_recibido, cambio, eliminado, eliminado_motivo, eliminado_at, eliminado_por, detalle_ventas(*, detalle_venta_inventario(*))"
     )
     .eq("eliminado", true)
     .order("eliminado_at", { ascending: false })

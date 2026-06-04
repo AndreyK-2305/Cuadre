@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Building2,
   Check,
+  Ban,
   CreditCard,
   Edit3,
   Home,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react"
 import { LoginForm } from "@/components/auth/LoginForm"
 import { useDashboardSession } from "@/components/dashboard/useDashboardSession"
-import { createAnnouncement, fetchAdminAnnouncements } from "@/lib/data/announcements"
+import { cancelAnnouncement, createAnnouncement, fetchAdminAnnouncements } from "@/lib/data/announcements"
 import {
   changeRestaurantAdminPassword,
   createRestaurant,
@@ -96,6 +97,7 @@ export function AdminShell() {
   const [saving, setSaving] = useState(false)
   const [savingPlans, setSavingPlans] = useState(false)
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false)
+  const [cancellingAnnouncementId, setCancellingAnnouncementId] = useState("")
   const [updatingAccess, setUpdatingAccess] = useState(false)
   const [updatingRestaurantId, setUpdatingRestaurantId] = useState("")
   const [passwordRestaurant, setPasswordRestaurant] = useState<Restaurant | null>(null)
@@ -434,6 +436,30 @@ export function AdminShell() {
     setNotice("Aviso creado. Aparecera una sola vez en el proximo inicio de sesion de los destinatarios.")
   }
 
+  async function handleCancelAnnouncement(announcementId: string) {
+    setError("")
+    setNotice("")
+    setCancellingAnnouncementId(announcementId)
+
+    const { data, error: cancelError } = await cancelAnnouncement(announcementId)
+
+    setCancellingAnnouncementId("")
+
+    if (cancelError || !data) {
+      setError(cancelError?.message ?? "No se pudo cancelar el aviso.")
+      return
+    }
+
+    setAnnouncements((current) =>
+      current.map((announcement) =>
+        announcement.id === announcementId
+          ? { ...announcement, activo: false, created_at: data.created_at ?? announcement.created_at }
+          : announcement
+      )
+    )
+    setNotice("Aviso cancelado correctamente.")
+  }
+
   if (loading) {
     return <main className="loading-screen">Cargando panel administrador...</main>
   }
@@ -555,7 +581,7 @@ export function AdminShell() {
               type="email"
               value={form.admin_email}
               onChange={(event) => updateForm("admin_email", event.target.value)}
-              placeholder="admin@emprendimiento.com"
+              placeholder="correo@tuemprendimiento.com"
               required
             />
           </div>
@@ -932,13 +958,33 @@ export function AdminShell() {
             {!loadingAnnouncements &&
               announcements.map((announcement) => (
                 <article className="admin-recent-item announcement-history-item" key={announcement.id}>
-                  <strong>{announcement.titulo}</strong>
+                  <div className="announcement-history-header">
+                    <strong>{announcement.titulo}</strong>
+                    <span className={announcement.activo ? "status-pill status-pill-success" : "status-pill status-pill-muted"}>
+                      {announcement.activo ? "Activo" : "Cancelado"}
+                    </span>
+                  </div>
                   <span>{announcement.mensaje}</span>
                   <small>
                     {announcement.target_type === "plan"
                       ? `Plan ${planNames.get(announcement.target_plan ?? "Gratis") ?? announcement.target_plan}`
                       : `${announcement.target_restaurante_ids.length} emprendimiento(s)`}
                   </small>
+                  <div className="announcement-history-actions">
+                    <button
+                      className="button danger"
+                      type="button"
+                      onClick={() => handleCancelAnnouncement(announcement.id)}
+                      disabled={!announcement.activo || cancellingAnnouncementId === announcement.id}
+                    >
+                      <Ban size={16} aria-hidden="true" />
+                      {cancellingAnnouncementId === announcement.id
+                        ? "Cancelando..."
+                        : announcement.activo
+                          ? "Cancelar aviso"
+                          : "Ya cancelado"}
+                    </button>
+                  </div>
                 </article>
               ))}
           </aside>

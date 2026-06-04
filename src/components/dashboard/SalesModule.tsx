@@ -17,18 +17,28 @@ import { filterProducts } from "@/lib/dashboard/products"
 import {
   buildSaleItems,
   canChargeCart,
+  getDefaultInventoryConsumptions,
   getCartQuantity,
   getCartTotal,
   getLowStockCount,
   getMobileCartState,
+  getProductRecipeLabel,
+  getSaleAvailabilityLabel,
   getSaleStockLabel,
   getSaleStockState,
+  hasDisabledRecipeInventory,
   getVisibleProductsLabel,
   quickCashValues
 } from "@/lib/dashboard/sales"
-import { fetchActiveSaleProducts } from "@/lib/data/products"
+import { fetchActiveInventoryItems, fetchActiveSaleProducts } from "@/lib/data/products"
 import { registerSale } from "@/lib/data/sales"
-import type { CartItem, MobileCartState, Product, RegisterSaleResult } from "@/types/app"
+import type {
+  CartItem,
+  MobileCartState,
+  Product,
+  RegisterSaleResult,
+  SaleInventoryConsumptionPayload
+} from "@/types/app"
 
 type SalesModuleProps = {
   restaurantId: string
@@ -48,6 +58,7 @@ export function SalesModule({
   onSaleCompleted
 }: SalesModuleProps) {
   const [products, setProducts] = useState<Product[]>([])
+  const [inventoryItems, setInventoryItems] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [cashReceived, setCashReceived] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -55,21 +66,26 @@ export function SalesModule({
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
+  const [checkoutError, setCheckoutError] = useState("")
   const [receipt, setReceipt] = useState<RegisterSaleResult | null>(null)
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
     setError("")
 
-    const { data, error: loadError } = await fetchActiveSaleProducts()
+    const [
+      { data, error: loadError },
+      { data: inventoryData, error: inventoryError }
+    ] = await Promise.all([fetchActiveSaleProducts(), fetchActiveInventoryItems()])
 
-    if (loadError) {
-      setError(loadError.message)
+    if (loadError || inventoryError) {
+      setError(loadError?.message ?? inventoryError?.message ?? "No se pudieron cargar productos.")
       setLoading(false)
       return
     }
 
     setProducts((data ?? []) as Product[])
+    setInventoryItems((inventoryData ?? []) as Product[])
     setLoading(false)
   }, [])
 
@@ -84,6 +100,19 @@ export function SalesModule({
   const cartTotal = useMemo(() => getCartTotal(cart), [cart])
   const cartQuantity = useMemo(() => getCartQuantity(cart), [cart])
   const lowStockCount = useMemo(() => getLowStockCount(products), [products])
+  const checkoutInventoryItems = useMemo(() => {
+    const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]))
+
+    for (const cartItem of cart) {
+      for (const recipe of cartItem.product.producto_inventario_recetas ?? []) {
+        if (recipe.inventario && !inventoryById.has(recipe.inventario.id)) {
+          inventoryById.set(recipe.inventario.id, recipe.inventario)
+        }
+      }
+    }
+
+    return Array.from(inventoryById.values()).sort((left, right) => left.nombre.localeCompare(right.nombre))
+  }, [cart, inventoryItems])
 
   const visibleProductsLabel = getVisibleProductsLabel(search, filteredProducts.length)
 
@@ -103,6 +132,7 @@ export function SalesModule({
   function addToCart(product: Product) {
     setReceipt(null)
     setError("")
+    setCheckoutError("")
 
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id)
@@ -130,15 +160,79 @@ export function SalesModule({
     setCart((current) => current.filter((item) => item.product.id !== productId))
   }
 
+  function updateCartItem(productId: string, updater: (item: CartItem) => CartItem) {
+    setCart((current) => current.map((item) => (item.product.id === productId ? updater(item) : item)))
+  }
+
+  function updateItemNote(productId: string, note: string) {
+    setCheckoutError("")
+    updateCartItem(productId, (item) => ({ ...item, note }))
+  }
+
+  function getEditableConsumptions(item: CartItem) {
+    return item.inventoryConsumptions ?? getDefaultInventoryConsumptions(item.product, item.quantity)
+  }
+
+  function updateItemConsumption(productId: string, index: number, patch: Partial<SaleInventoryConsumptionPayload>) {
+    setCheckoutError("")
+    updateCartItem(productId, (item) => {
+      const consumptions = getEditableConsumptions(item)
+      return {
+        ...item,
+        inventoryConsumptions: consumptions.map((consumption, consumptionIndex) =>
+          consumptionIndex === index ? { ...consumption, ...patch } : consumption
+        )
+      }
+    })
+  }
+
+  function addItemConsumption(productId: string) {
+    setCheckoutError("")
+    updateCartItem(productId, (item) => {
+      const consumptions = getEditableConsumptions(item)
+      const nextInventoryId = inventoryItems.find(
+        (inventory) => !consumptions.some((consumption) => consumption.inventario_id === inventory.id)
+      )?.id
+
+      if (!nextInventoryId) return item
+
+      return {
+        ...item,
+        inventoryConsumptions: [...consumptions, { inventario_id: nextInventoryId, cantidad: 1 }]
+      }
+    })
+  }
+
+  function removeItemConsumption(productId: string, index: number) {
+    setCheckoutError("")
+    updateCartItem(productId, (item) => ({
+      ...item,
+      inventoryConsumptions: getEditableConsumptions(item).filter((_, consumptionIndex) => consumptionIndex !== index)
+    }))
+  }
+
+  function resetItemConsumptions(productId: string) {
+    setCheckoutError("")
+    updateCartItem(productId, (item) => ({ ...item, inventoryConsumptions: undefined }))
+  }
+
+  function updateItemQuantity(productId: string, quantity: number) {
+    const nextQuantity = Number.isFinite(quantity) ? Math.max(1, Math.trunc(quantity)) : 1
+    setCheckoutError("")
+    updateCartItem(productId, (item) => ({ ...item, quantity: nextQuantity }))
+  }
+
   function clearCart() {
     setCart([])
     setCashReceived(0)
     setIsCheckoutOpen(false)
+    setCheckoutError("")
   }
 
   async function handleCharge() {
     setSaving(true)
     setError("")
+    setCheckoutError("")
     setReceipt(null)
 
     const items = buildSaleItems(cart)
@@ -148,7 +242,7 @@ export function SalesModule({
     setSaving(false)
 
     if (saleError) {
-      setError(saleError.message)
+      setCheckoutError(saleError.message)
       return
     }
 
@@ -196,6 +290,13 @@ export function SalesModule({
         <div className="notice">
           {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por {sellerName}. Total:{" "}
           {formatCurrency(receipt.total)}. Cambio: {formatCurrency(receipt.cambio)}.
+          {receipt.advertencias && receipt.advertencias.length > 0 && (
+            <span className="sale-warning-list">
+              {receipt.advertencias.map((warning) => (
+                <span key={warning}>Advertencia: {warning}</span>
+              ))}
+            </span>
+          )}
         </div>
       )}
 
@@ -235,12 +336,13 @@ export function SalesModule({
                   <article className="sale-card" key={product.id}>
                     <div className="sale-card-topline">
                       <span className={`stock-badge ${stockState}`}>{stockLabel}</span>
-                      <span className="muted">{product.cantidad_stock} en stock</span>
+                      <span className="muted">{getSaleAvailabilityLabel(product)}</span>
                     </div>
 
                     <div className="product-name">
                       <h3>{product.nombre}</h3>
                       <p className="muted">{product.descripcion || product.tipo_unidad}</p>
+                      <p className="muted">{getProductRecipeLabel(product)}</p>
                     </div>
 
                     <footer>
@@ -252,7 +354,13 @@ export function SalesModule({
                         className="button primary add-sale-button"
                         type="button"
                         onClick={() => addToCart(product)}
-                        title={`Agregar ${product.nombre}`}
+                        title={
+                          hasDisabledRecipeInventory(product)
+                            ? "El inventario asociado esta suspendido. Corrige la receta antes de cobrar."
+                            : stockState === "off"
+                            ? "Se puede vender, pero el inventario asociado quedara negativo"
+                            : `Agregar ${product.nombre}`
+                        }
                       >
                         <Plus size={18} />
                         Agregar
@@ -342,16 +450,27 @@ export function SalesModule({
       {isCheckoutOpen && (
         <CheckoutModal
           cart={cart}
+          inventoryItems={checkoutInventoryItems}
           cashReceived={cashReceived}
           cartTotal={cartTotal}
           change={change}
           saving={saving}
           canCharge={canCharge}
-          onClose={() => setIsCheckoutOpen(false)}
+          error={checkoutError}
+          onClose={() => {
+            setIsCheckoutOpen(false)
+            setCheckoutError("")
+          }}
           onAdd={addToCart}
           onDecrease={decreaseItem}
+          onQuantityChange={updateItemQuantity}
           onRemove={removeItem}
           onClear={clearCart}
+          onNoteChange={updateItemNote}
+          onConsumptionChange={updateItemConsumption}
+          onConsumptionAdd={addItemConsumption}
+          onConsumptionRemove={removeItemConsumption}
+          onConsumptionReset={resetItemConsumptions}
           onCashChange={setCashReceived}
           onCharge={handleCharge}
         />
@@ -362,30 +481,46 @@ export function SalesModule({
 
 function CheckoutModal({
   cart,
+  inventoryItems,
   cashReceived,
   cartTotal,
   change,
   saving,
   canCharge,
+  error,
   onClose,
   onAdd,
   onDecrease,
+  onQuantityChange,
   onRemove,
   onClear,
+  onNoteChange,
+  onConsumptionChange,
+  onConsumptionAdd,
+  onConsumptionRemove,
+  onConsumptionReset,
   onCashChange,
   onCharge
 }: {
   cart: CartItem[]
+  inventoryItems: Product[]
   cashReceived: number
   cartTotal: number
   change: number
   saving: boolean
   canCharge: boolean
+  error: string
   onClose: () => void
   onAdd: (product: Product) => void
   onDecrease: (productId: string) => void
+  onQuantityChange: (productId: string, quantity: number) => void
   onRemove: (productId: string) => void
   onClear: () => void
+  onNoteChange: (productId: string, note: string) => void
+  onConsumptionChange: (productId: string, index: number, patch: Partial<SaleInventoryConsumptionPayload>) => void
+  onConsumptionAdd: (productId: string) => void
+  onConsumptionRemove: (productId: string, index: number) => void
+  onConsumptionReset: (productId: string) => void
   onCashChange: (value: number) => void
   onCharge: () => void
 }) {
@@ -400,6 +535,8 @@ function CheckoutModal({
           onClose={onClose}
         />
 
+        {error && <div className="alert checkout-alert">{error}</div>}
+
         <div className="checkout-grid">
           <section className="checkout-details">
             <div className="section-title">
@@ -409,45 +546,152 @@ function CheckoutModal({
 
             <div className="cart-list checkout-list">
               {cart.length === 0 && <div className="empty-state">El carrito esta vacio.</div>}
-              {cart.map((item) => (
-                <article className="cart-row" key={item.product.id}>
-                  <div>
-                    <h3>{item.product.nombre}</h3>
-                    <p className="muted">
-                      {formatCurrency(item.product.precio)} x {item.quantity} = {" "}
-                      {formatCurrency(item.product.precio * item.quantity)}
-                    </p>
-                  </div>
+              {cart.map((item) => {
+                const consumptions = item.inventoryConsumptions ?? getDefaultInventoryConsumptions(item.product, item.quantity)
+                const isCustomConsumption = item.inventoryConsumptions !== undefined
 
-                  <div className="cart-actions">
-                    <button
-                      className="button subtle icon"
-                      type="button"
-                      onClick={() => onDecrease(item.product.id)}
-                      title="Restar unidad"
-                    >
-                      <Minus size={17} />
-                    </button>
-                    <div className="qty-box">{item.quantity}</div>
-                    <button
-                      className="button subtle icon"
-                      type="button"
-                      onClick={() => onAdd(item.product)}
-                      title="Sumar unidad"
-                    >
-                      <Plus size={17} />
-                    </button>
-                    <button
-                      className="button danger icon"
-                      type="button"
-                      onClick={() => onRemove(item.product.id)}
-                      title="Quitar producto"
-                    >
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-                </article>
-              ))}
+                return (
+                  <article className="cart-row checkout-cart-row" key={item.product.id}>
+                    <div>
+                      <h3>{item.product.nombre}</h3>
+                      <p className="muted">
+                        {formatCurrency(item.product.precio)} x {item.quantity} = {" "}
+                        {formatCurrency(item.product.precio * item.quantity)}
+                      </p>
+                    </div>
+
+                    <div className="cart-actions">
+                      <button
+                        className="button subtle icon"
+                        type="button"
+                        onClick={() => onDecrease(item.product.id)}
+                        title="Restar unidad"
+                      >
+                        <Minus size={17} />
+                      </button>
+                      <input
+                        className="qty-box qty-input"
+                        aria-label={`Cantidad de ${item.product.nombre}`}
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={item.quantity}
+                        onChange={(event) => onQuantityChange(item.product.id, Number(event.target.value))}
+                      />
+                      <button
+                        className="button subtle icon"
+                        type="button"
+                        onClick={() => onAdd(item.product)}
+                        title="Sumar unidad"
+                      >
+                        <Plus size={17} />
+                      </button>
+                      <button
+                        className="button danger icon"
+                        type="button"
+                        onClick={() => onRemove(item.product.id)}
+                        title="Quitar producto"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+
+                    <label className="field checkout-note-field">
+                      <span>Detalle opcional</span>
+                      <input
+                        value={item.note ?? ""}
+                        onChange={(event) => onNoteChange(item.product.id, event.target.value)}
+                        placeholder="Ej: sin salsa, promo, ajuste rapido"
+                      />
+                    </label>
+
+                    <div className="checkout-consumption">
+                      <div className="checkout-consumption-header">
+                        <div>
+                          <strong>Inventario usado</strong>
+                          <span>{isCustomConsumption ? "Ajustado manualmente" : "Segun receta configurada"}</span>
+                        </div>
+                        {isCustomConsumption && (
+                          <button className="button subtle" type="button" onClick={() => onConsumptionReset(item.product.id)}>
+                            Usar receta
+                          </button>
+                        )}
+                      </div>
+
+                      {consumptions.length === 0 && (
+                        <p className="muted">Este producto no descuenta inventario por defecto.</p>
+                      )}
+
+                      {consumptions.map((consumption, index) => (
+                        <div className="consumption-row" key={`${consumption.inventario_id}-${index}`}>
+                          <select
+                            value={consumption.inventario_id}
+                            onChange={(event) =>
+                              onConsumptionChange(item.product.id, index, { inventario_id: event.target.value })
+                            }
+                          >
+                            {inventoryItems.map((inventory) => (
+                              <option key={inventory.id} value={inventory.id}>
+                                {inventory.nombre} ({inventory.cantidad_stock} {inventory.tipo_unidad}
+                                {!inventory.activo ? " - suspendido" : ""})
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            aria-label="Cantidad de inventario usada"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={consumption.cantidad}
+                            onChange={(event) =>
+                              onConsumptionChange(item.product.id, index, { cantidad: Number(event.target.value) })
+                            }
+                          />
+                          <button
+                            className="button danger icon"
+                            type="button"
+                            onClick={() => onConsumptionRemove(item.product.id, index)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+
+                      {consumptions.map((consumption, index) => {
+                        const inventory = inventoryItems.find((item) => item.id === consumption.inventario_id)
+                        if (!inventory) return null
+
+                        if (!inventory.activo) {
+                          return (
+                            <p className="muted consumption-warning" key={`warning-${consumption.inventario_id}-${index}`}>
+                              {inventory.nombre} esta suspendido. Corrige la receta o selecciona otro inventario antes de cobrar.
+                            </p>
+                          )
+                        }
+
+                        if (inventory.cantidad_stock >= consumption.cantidad) return null
+
+                        return (
+                          <p className="muted consumption-warning" key={`warning-${consumption.inventario_id}-${index}`}>
+                            {inventory.nombre} quedara en {inventory.cantidad_stock - consumption.cantidad}{" "}
+                            {inventory.tipo_unidad}. Se guardara como descuadre de inventario.
+                          </p>
+                        )
+                      })}
+
+                      <button
+                        className="button subtle"
+                        type="button"
+                        onClick={() => onConsumptionAdd(item.product.id)}
+                        disabled={inventoryItems.length === 0}
+                      >
+                        <Plus size={17} />
+                        Agregar consumo
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
 
             {cart.length > 0 && (
