@@ -715,7 +715,7 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
           const expensesWidth = Math.max(8, (point.expenses / analytics.maxTrendValue) * 100)
 
           return `
-            <table class="chart-table" role="presentation">
+            <table class="chart-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;">
               <tbody>
                 <tr>
                   <td class="chart-label">${escapeHtml(point.label)}</td>
@@ -723,15 +723,35 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
                 </tr>
                 <tr>
                   <td class="chart-track-cell" colspan="2">
-                    <table class="chart-track-table" role="presentation">
+                    <table class="chart-track-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;border-collapse:collapse;">
                       <tbody>
                         <tr>
-                          <td class="chart-fill sales" style="width:${salesWidth}%"></td>
-                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - salesWidth)}%"></td>
+                          <td
+                            class="chart-fill sales"
+                            width="${salesWidth.toFixed(2)}%"
+                            bgcolor="${primaryColor}"
+                            style="background:${primaryColor};height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
+                          <td
+                            class="chart-fill-rest"
+                            width="${Math.max(0, 100 - salesWidth).toFixed(2)}%"
+                            bgcolor="#e7edf2"
+                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
                         </tr>
                         <tr>
-                          <td class="chart-fill expenses" style="width:${expensesWidth}%"></td>
-                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - expensesWidth)}%"></td>
+                          <td
+                            class="chart-fill expenses"
+                            width="${expensesWidth.toFixed(2)}%"
+                            bgcolor="${secondaryColor}"
+                            style="background:${secondaryColor};height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
+                          <td
+                            class="chart-fill-rest"
+                            width="${Math.max(0, 100 - expensesWidth).toFixed(2)}%"
+                            bgcolor="#e7edf2"
+                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
                         </tr>
                       </tbody>
                     </table>
@@ -751,7 +771,7 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
           const width = Math.max(10, (item.quantity / analytics.maxProductQuantity) * 100)
 
           return `
-            <table class="chart-table" role="presentation">
+            <table class="chart-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;">
               <tbody>
                 <tr>
                   <td class="chart-label">${escapeHtml(item.name)}</td>
@@ -759,11 +779,21 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
                 </tr>
                 <tr>
                   <td class="chart-track-cell" colspan="2">
-                    <table class="chart-track-table" role="presentation">
+                    <table class="chart-track-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;border-collapse:collapse;">
                       <tbody>
                         <tr>
-                          <td class="chart-fill product" style="width:${width}%"></td>
-                          <td class="chart-fill-rest" style="width:${Math.max(0, 100 - width)}%"></td>
+                          <td
+                            class="chart-fill product"
+                            width="${width.toFixed(2)}%"
+                            bgcolor="${COLORS.success}"
+                            style="background:${COLORS.success};height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
+                          <td
+                            class="chart-fill-rest"
+                            width="${Math.max(0, 100 - width).toFixed(2)}%"
+                            bgcolor="#e7edf2"
+                            style="background:#e7edf2;height:12px;line-height:12px;font-size:1px;"
+                          >&nbsp;</td>
                         </tr>
                       </tbody>
                     </table>
@@ -798,7 +828,7 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
       <table class="analytics-charts-table" role="presentation">
         <tr>
           <td>
-            <div class="analytics-chart">
+            <div class="analytics-chart" style="border:1px solid #d7e0e8;border-radius:14px;padding:14px;background:linear-gradient(180deg,#f7fafc,#ffffff);">
               <div class="analytics-chart-title">
                 <strong>Tendencia por dia</strong>
                 <span>Ventas y egresos del periodo</span>
@@ -807,7 +837,7 @@ function analyticsSectionHtml(analytics: AnalyticsData) {
             </div>
           </td>
           <td>
-            <div class="analytics-chart">
+            <div class="analytics-chart" style="border:1px solid #d7e0e8;border-radius:14px;padding:14px;background:linear-gradient(180deg,#f7fafc,#ffffff);">
               <div class="analytics-chart-title">
                 <strong>Productos con mayor salida</strong>
                 <span>Top de unidades vendidas</span>
@@ -1215,8 +1245,8 @@ function drawAnalyticsChart(
   }
 
   const contentTop = y - 76
-  const rowGap = mode === "trend" ? 34 : 33
-  const rowHeight = mode === "trend" ? 22 : 18
+  const rowGap = mode === "trend" ? 40 : 36
+  const rowHeight = mode === "trend" ? 32 : 24
   const barAreaWidth = width - 40
   let cursorY = contentTop
 
@@ -1225,21 +1255,21 @@ function drawAnalyticsChart(
     return
   }
 
-  for (const row of rows.slice(0, 5)) {
-    drawText(page, x + 12, cursorY, row.label, 8.6, "F2", COLORS.text)
+  for (const row of rows.slice(0, 4)) {
+    drawText(page, x + 12, cursorY + 3, row.label, 8.1, "F2", COLORS.text)
     const normalized = Math.max(0.08, row.value / Math.max(1, maxValue))
     const barWidth = Math.max(14, barAreaWidth * normalized)
-    drawRect(page, x + 12, cursorY - 14, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
+    drawRect(page, x + 12, cursorY - 18, barAreaWidth, rowHeight, COLORS.soft, COLORS.border)
 
     if (mode === "trend") {
       const salesWidth = Math.max(8, barAreaWidth * Math.max(0.06, (row.sales ?? 0) / Math.max(1, maxValue)))
       const expensesWidth = Math.max(6, barAreaWidth * Math.max(0.04, (row.expenses ?? 0) / Math.max(1, maxValue)))
-      drawRect(page, x + 12, cursorY - 12, salesWidth, 8, primaryColor)
-      drawRect(page, x + 12, cursorY - 2, expensesWidth, 6, secondaryColor)
-      drawText(page, x + width - 74, cursorY, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 8.0, "F2", COLORS.muted)
+      drawText(page, x + width - 72, cursorY + 3, formatSignedCurrency((row.sales ?? 0) - (row.expenses ?? 0)), 7.8, "F2", COLORS.muted)
+      drawRect(page, x + 12, cursorY - 14, salesWidth, 7, primaryColor)
+      drawRect(page, x + 12, cursorY - 5, expensesWidth, 6, secondaryColor)
     } else {
-      drawRect(page, x + 12, cursorY - 12, barWidth, 10, primaryColor)
-      drawText(page, x + width - 66, cursorY, `${row.quantity ?? row.value}`, 8.0, "F2", COLORS.white)
+      drawText(page, x + width - 66, cursorY + 3, `${row.quantity ?? row.value}`, 7.8, "F2", COLORS.white)
+      drawRect(page, x + 12, cursorY - 13, barWidth, 10, primaryColor)
     }
 
     cursorY -= rowGap
