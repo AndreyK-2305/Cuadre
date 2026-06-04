@@ -299,16 +299,12 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
           </div>
 
           <div className="field">
-            <label htmlFor="employee-role">Rol operativo</label>
-            <select
-              id="employee-role"
+            <span className="field-label" id="employee-role-label">Rol operativo</span>
+            <RoleSelector
+              labelledBy="employee-role-label"
               value={form.rol}
-              onChange={(event) => updateForm("rol", event.target.value as OperationalUserRole)}
-            >
-              {operationalRoles.map((role) => (
-                <option key={role} value={role}>{roleLabel(role)}</option>
-              ))}
-            </select>
+              onChange={(role) => updateForm("rol", role)}
+            />
           </div>
 
           <button className="button primary" type="submit" disabled={saving}>
@@ -368,18 +364,16 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
               <span className={`badge ${employee.activo ? "active" : "off"}`}>
                 {employee.activo ? "Activo" : "Suspendido"}
               </span>
-              <label className="employee-role-select">
-                <span>Rol</span>
-                <select
+              <div className="employee-role-select">
+                <span id={`employee-role-${employee.user_id}`}>Rol</span>
+                <RoleSelector
+                  labelledBy={`employee-role-${employee.user_id}`}
                   value={employee.rol}
-                  onChange={(event) => handleRoleChange(employee, event.target.value as OperationalUserRole)}
+                  onChange={(role) => handleRoleChange(employee, role)}
                   disabled={updatingId === employee.user_id}
-                >
-                  {operationalRoles.map((role) => (
-                    <option key={role} value={role}>{roleLabel(role)}</option>
-                  ))}
-                </select>
-              </label>
+                  compact
+                />
+              </div>
               <div className="restaurant-row-actions">
                 <button
                   className={employee.activo ? "button warn" : "button mint"}
@@ -413,4 +407,55 @@ export function EmployeesModule({ restaurantId, isGlobal = false }: EmployeesMod
 
 function roleLabel(role: OperationalUserRole) {
   return role === "Gerente" ? "Gerente" : "Empleado"
+}
+
+function roleHint(role: OperationalUserRole) {
+  return role === "Gerente" ? "Permisos elevados" : "Operacion diaria"
+}
+
+function RoleSelector({
+  labelledBy,
+  value,
+  onChange,
+  disabled = false,
+  compact = false
+}: {
+  labelledBy: string
+  value: OperationalUserRole
+  onChange: (role: OperationalUserRole) => void
+  disabled?: boolean
+  compact?: boolean
+}) {
+  return (
+    <div
+      className={compact ? "role-selector compact" : "role-selector"}
+      role="radiogroup"
+      aria-labelledby={labelledBy}
+    >
+      {operationalRoles.map((role) => {
+        const isActive = value === role
+        const Icon = role === "Gerente" ? ShieldCheck : Users
+
+        return (
+          <button
+            key={role}
+            className={isActive ? "role-option active" : "role-option"}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            onClick={() => onChange(role)}
+            disabled={disabled}
+          >
+            <span className="role-option-icon" aria-hidden="true">
+              <Icon size={15} />
+            </span>
+            <span>
+              <strong>{roleLabel(role)}</strong>
+              {!compact && <small>{roleHint(role)}</small>}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }

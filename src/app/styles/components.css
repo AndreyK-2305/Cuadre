@@ -11,6 +11,12 @@
   font-weight: 700;
 }
 
+.field-label {
+  color: #344054;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .field input,
 .field textarea,
 .field select,
