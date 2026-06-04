@@ -3,44 +3,35 @@
 import Image from "next/image"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 
-const mobileDesignSrc = "/img/Diseño%20movil.png"
+const mobileDesignSrc = encodeURI("/img/Diseño movil.png")
 
 export function HomeMobileShowcase() {
   const sectionRef = useRef<HTMLElement | null>(null)
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    let rafId = 0
+    const section = sectionRef.current
 
-    const updateProgress = () => {
-      const section = sectionRef.current
+    if (!section || typeof window === "undefined") {
+      return
+    }
 
-      if (!section) {
-        return
+    const thresholds = Array.from({ length: 21 }, (_, index) => index / 20)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nextProgress = Math.max(0, Math.min(1, entry.intersectionRatio))
+        setProgress(nextProgress)
+      },
+      {
+        threshold: thresholds,
+        rootMargin: "0px 0px -10% 0px"
       }
+    )
 
-      const rect = section.getBoundingClientRect()
-      const viewportHeight = window.innerHeight || 1
-      const start = viewportHeight * 0.88
-      const end = -rect.height * 0.3
-      const rawProgress = (start - rect.top) / (start - end)
-
-      setProgress(Math.min(1, Math.max(0, rawProgress)))
-    }
-
-    const onScroll = () => {
-      window.cancelAnimationFrame(rafId)
-      rafId = window.requestAnimationFrame(updateProgress)
-    }
-
-    updateProgress()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    window.addEventListener("resize", onScroll)
+    observer.observe(section)
 
     return () => {
-      window.cancelAnimationFrame(rafId)
-      window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", onScroll)
+      observer.disconnect()
     }
   }, [])
 
@@ -50,8 +41,6 @@ export function HomeMobileShowcase() {
         className="landing-showcase-frame"
         style={{ "--reveal-progress": progress.toFixed(3) } as CSSProperties}
       >
-        <div className="landing-showcase-glow" aria-hidden="true" />
-        <div className="landing-showcase-fog" aria-hidden="true" />
         <div className="landing-showcase-image-wrap">
           <Image
             className="landing-showcase-image"
