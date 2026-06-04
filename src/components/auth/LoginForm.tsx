@@ -224,7 +224,7 @@ export function LoginForm({ purpose = "operator" }: LoginFormProps) {
               type="email"
               value={email}
               onChange={(event) => handleEmailChange(event.target.value)}
-              placeholder="admin@cuadre.app"
+              placeholder="correo@tuemprendimiento.com"
               autoComplete="email"
               required
             />

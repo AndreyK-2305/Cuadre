@@ -581,7 +581,7 @@ export function AdminShell() {
               type="email"
               value={form.admin_email}
               onChange={(event) => updateForm("admin_email", event.target.value)}
-              placeholder="admin@emprendimiento.com"
+              placeholder="correo@tuemprendimiento.com"
               required
             />
           </div>
