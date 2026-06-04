@@ -439,10 +439,10 @@ export function ReportsModule({
             <p>
               {forcedToday
                 ? planCapabilities.reportTodayOnly
-                  ? `Plan ${activePlanName}: solo consulta ventas y egresos del dia actual.`
+                  ? "Tu plan solo incluye reportes del dia actual."
                   : "Tu usuario de empleado solo consulta ventas y egresos del dia actual."
                 : effectiveReportCapabilities.reportHistoryDays
-                ? `Plan ${activePlanName}: ${getReportHistoryLabel(effectiveReportCapabilities)}.`
+                ? `Tu plan incluye ${getReportHistoryLabel(effectiveReportCapabilities)}.`
                 : isGlobal
                 ? "Consulta la operacion consolidada por dia, semana, mes o historial completo."
                 : "Consulta ventas y egresos por dia, semana, mes o historial completo."}
@@ -454,7 +454,7 @@ export function ReportsModule({
           <div className="metric report-day-lock">
             <span>Periodo permitido</span>
             <strong>{formatDateForReport(today)}</strong>
-            <small>{planCapabilities.reportTodayOnly ? `Plan ${activePlanName}` : "Acceso operativo diario"}</small>
+            <small>{planCapabilities.reportTodayOnly ? "Incluido en tu plan" : "Acceso operativo diario"}</small>
           </div>
         ) : (
           <div className="filter-grid">
@@ -505,7 +505,7 @@ export function ReportsModule({
                 type="button"
                 onClick={() => setPreset("all")}
                 disabled={Boolean(effectiveReportCapabilities.reportHistoryDays)}
-                title={effectiveReportCapabilities.reportHistoryDays ? "Tu plan limita el historial a 3 meses." : undefined}
+                title={effectiveReportCapabilities.reportHistoryDays ? "Tu plan incluye historial de hasta 3 meses." : undefined}
               >
                 Todo
               </button>
@@ -514,7 +514,7 @@ export function ReportsModule({
         )}
 
         <div className="report-plan-row">
-          <span className="badge active">Plan {activePlanName}</span>
+          <span className="badge active">Tu plan: {activePlanName}</span>
           <span>{getReportHistoryLabel(effectiveReportCapabilities)}</span>
           {canExportReports ? (
             <button className="button mint" type="button" onClick={() => setIsExportOpen(true)} disabled={loading}>
@@ -522,7 +522,7 @@ export function ReportsModule({
               Exportar reporte
             </button>
           ) : (
-            <span className="muted">Descargas no incluidas en este plan.</span>
+            <span className="muted">Tu plan no incluye descargas de reportes.</span>
           )}
         </div>
       </section>

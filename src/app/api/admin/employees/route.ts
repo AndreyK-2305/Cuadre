@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js"
-import { getEmployeeLimitLabel, getPlanCapabilities, getPlanDisplayName } from "@/lib/planLimits"
+import { getEmployeeLimitLabel, getPlanCapabilities } from "@/lib/planLimits"
 import type { EmployeeCreatePayload, EmployeeUser, OperationalUserRole, Restaurant, UserProfile } from "@/types/app"
 
 type EmployeeActionBody = {
@@ -464,7 +464,7 @@ async function ensureEmployeeSlotAvailable(
 
   if (capabilities.employeeLimit === 0) {
     return {
-      error: `El plan ${getPlanDisplayName(restaurant.nivel_suscripcion)} no permite crear empleados o gerentes.`
+      error: "Tu plan no incluye el modulo de empleados. Puedes operar con el usuario administrador."
     }
   }
 
@@ -481,7 +481,7 @@ async function ensureEmployeeSlotAvailable(
 
   if ((count ?? 0) >= capabilities.employeeLimit) {
     return {
-      error: `El plan ${getPlanDisplayName(restaurant.nivel_suscripcion)} permite ${getEmployeeLimitLabel(capabilities.employeeLimit)} operativos.`
+      error: `Tu plan esta limitado a ${getEmployeeLimitLabel(capabilities.employeeLimit)} operativos activos.`
     }
   }
 

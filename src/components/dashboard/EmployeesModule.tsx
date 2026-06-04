@@ -12,8 +12,7 @@ import {
 import { fetchRestaurants } from "@/lib/data/restaurants"
 import {
   getEmployeeLimitLabel,
-  getPlanCapabilities,
-  getPlanDisplayName
+  getPlanCapabilities
 } from "@/lib/planLimits"
 import type { EmployeeUser, OperationalUserRole, Restaurant, SubscriptionLevel } from "@/types/app"
 
@@ -144,9 +143,9 @@ export function EmployeesModule({ restaurantId, subscriptionLevel, isGlobal = fa
   const employeeLimitReached = employeeLimit !== null && activeEmployees >= employeeLimit
   const canCreateEmployee = !employeesLockedByPlan && !employeeLimitReached
   const employeePlanMessage = employeesLockedByPlan
-    ? `El plan ${getPlanDisplayName(activePlanLevel)} no permite crear empleados o gerentes.`
+    ? "Tu plan no incluye el modulo de empleados. Puedes operar con el usuario administrador."
     : employeeLimitReached
-      ? `El plan ${getPlanDisplayName(activePlanLevel)} permite ${getEmployeeLimitLabel(employeeLimit)} operativos.`
+      ? `Tu plan esta limitado a ${getEmployeeLimitLabel(employeeLimit)} operativos activos.`
       : ""
 
   function updateForm<K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) {
@@ -259,8 +258,9 @@ export function EmployeesModule({ restaurantId, subscriptionLevel, isGlobal = fa
       {notice && <div className="notice">{notice}</div>}
       {employeeLimit !== null && (
         <div className={canCreateEmployee ? "notice" : "alert"}>
-          Plan {getPlanDisplayName(activePlanLevel)}:{" "}
-          {employeeLimit === 0 ? "modulo de empleados no incluido" : `${activeEmployees}/${employeeLimit} usuarios operativos activos`}.
+          {employeeLimit === 0
+            ? "Tu plan no incluye empleados ni gerentes adicionales."
+            : `Tu plan esta limitado a ${employeeLimit} usuarios operativos activos. Usados: ${activeEmployees}/${employeeLimit}.`}
         </div>
       )}
 
@@ -349,7 +349,7 @@ export function EmployeesModule({ restaurantId, subscriptionLevel, isGlobal = fa
             <span>Usuarios activos</span>
             <strong>{activeEmployees}</strong>
             <small>
-              {employeeLimit === null ? "Sin limite de usuarios" : `${employeeLimit} cupos por plan`} -{" "}
+              {employeeLimit === null ? "Tu plan no limita usuarios" : `${employeeLimit} cupos incluidos`} -{" "}
               {managerCount} gerente(s)
             </small>
           </article>

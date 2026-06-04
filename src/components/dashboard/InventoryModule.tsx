@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { Check, Edit3, Plus, Power, Search } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
-import { getPlanCapabilities, getPlanDisplayName, getProductLimitLabel } from "@/lib/planLimits"
+import { getPlanCapabilities, getProductLimitLabel } from "@/lib/planLimits"
 import { ModalBackdrop, ModalHeader } from "@/components/ui/Modal"
 import {
   buildProductPayload,
@@ -80,7 +80,7 @@ export function InventoryModule({
   const productLimitReached =
     planCapabilities.productLimit !== null && products.length >= planCapabilities.productLimit
   const productLimitMessage = productLimitReached
-    ? `El plan ${getPlanDisplayName(subscriptionLevel)} permite ${getProductLimitLabel(planCapabilities.productLimit)} entre productos e inventario.`
+    ? `Tu plan esta limitado a ${planCapabilities.productLimit} productos entre catalogo e inventario.`
     : ""
 
   function updateForm<K extends keyof ProductForm>(key: K, value: ProductForm[K]) {
@@ -332,7 +332,8 @@ export function InventoryModule({
       {notice && <div className="notice">{notice}</div>}
       {planCapabilities.productLimit !== null && (
         <div className={productLimitReached ? "alert" : "notice"}>
-          Plan {getPlanDisplayName(subscriptionLevel)}: {products.length}/{planCapabilities.productLimit} productos usados.
+          Tu plan esta limitado a {getProductLimitLabel(planCapabilities.productLimit)}. Usados: {products.length}/
+          {planCapabilities.productLimit}.
         </div>
       )}
 
