@@ -276,10 +276,128 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_product_plan_limit()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_plan text;
+  v_product_count integer;
+  v_is_first_ten boolean;
+begin
+  select nivel_suscripcion
+  into v_plan
+  from public.restaurantes
+  where id = new.restaurante_id;
+
+  if v_plan = 'Gratis' then
+    if tg_op = 'INSERT' then
+      select count(*)
+      into v_product_count
+      from public.productos
+      where restaurante_id = new.restaurante_id;
+
+      if v_product_count >= 10 then
+        raise exception 'El plan Gratis permite maximo 10 productos entre catalogo e inventario';
+      end if;
+    elsif tg_op = 'UPDATE' and new.activo = true then
+      select exists (
+        select 1
+        from (
+          select id
+          from public.productos
+          where restaurante_id = new.restaurante_id
+          order by created_at asc, id asc
+          limit 10
+        ) primeros_productos
+        where primeros_productos.id = new.id
+      )
+      into v_is_first_ten;
+
+      if not coalesce(v_is_first_ten, false) then
+        raise exception 'El plan Gratis solo permite activar los 10 primeros productos registrados';
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.apply_restaurant_plan_access_limits()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_employee_limit integer;
+  v_product_limit integer;
+begin
+  if new.nivel_suscripcion = 'Gratis' then
+    v_employee_limit := 0;
+    v_product_limit := 10;
+  elsif new.nivel_suscripcion = 'Basico' then
+    v_employee_limit := 2;
+    v_product_limit := null;
+  elsif new.nivel_suscripcion = 'Completo' then
+    v_employee_limit := 5;
+    v_product_limit := null;
+  else
+    v_employee_limit := null;
+    v_product_limit := null;
+  end if;
+
+  if v_employee_limit is not null then
+    update public.usuarios
+    set activo = false
+    where user_id in (
+      select user_id
+      from (
+        select
+          user_id,
+          row_number() over (order by created_at asc, user_id asc) as rn
+        from public.usuarios
+        where restaurante_id = new.id
+          and rol in ('Empleado', 'Gerente')
+          and activo = true
+      ) usuarios_ordenados
+      where rn > v_employee_limit
+    );
+  end if;
+
+  if v_product_limit is not null then
+    update public.productos
+    set activo = false
+    where id in (
+      select id
+      from (
+        select
+          id,
+          row_number() over (order by created_at asc, id asc) as rn
+        from public.productos
+        where restaurante_id = new.id
+      ) productos_ordenados
+      where rn > v_product_limit
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_productos_updated_at on public.productos;
 create trigger trg_productos_updated_at
 before update on public.productos
 for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_productos_plan_limit on public.productos;
+create trigger trg_productos_plan_limit
+before insert or update on public.productos
+for each row execute function public.enforce_product_plan_limit();
+
+drop trigger if exists trg_restaurantes_plan_access_limits on public.restaurantes;
+create trigger trg_restaurantes_plan_access_limits
+after insert or update of nivel_suscripcion on public.restaurantes
+for each row execute function public.apply_restaurant_plan_access_limits();
 
 drop trigger if exists trg_restaurantes_updated_at on public.restaurantes;
 create trigger trg_restaurantes_updated_at
@@ -366,6 +484,36 @@ as $$
     from public.restaurantes
     where restaurantes.id = public.current_restaurant_id()
   ), false)
+$$;
+
+create or replace function public.current_restaurant_plan()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select restaurantes.nivel_suscripcion
+  from public.restaurantes
+  where restaurantes.id = public.current_restaurant_id()
+$$;
+
+create or replace function public.current_user_can_read_report_date(p_fecha_dia date)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when public.current_user_is_employee() then
+      p_fecha_dia = ((timezone('America/Bogota', now()))::date)
+    when public.current_restaurant_plan() = 'Gratis' then
+      p_fecha_dia = ((timezone('America/Bogota', now()))::date)
+    when public.current_restaurant_plan() = 'Basico' then
+      p_fecha_dia >= (((timezone('America/Bogota', now()))::date - interval '3 months')::date)
+    else true
+  end
 $$;
 
 create or replace function public.handle_new_user()
@@ -881,10 +1029,7 @@ using (
     restaurante_id = public.current_restaurant_id()
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
-    and (
-      not public.current_user_is_employee()
-      or fecha_dia = ((timezone('America/Bogota', now()))::date)
-    )
+    and public.current_user_can_read_report_date(fecha_dia)
   )
 );
 
@@ -916,10 +1061,7 @@ using (
     restaurante_id = public.current_restaurant_id()
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
-    and (
-      not public.current_user_is_employee()
-      or fecha_dia = ((timezone('America/Bogota', now()))::date)
-    )
+    and public.current_user_can_read_report_date(fecha_dia)
   )
 );
 
@@ -962,10 +1104,7 @@ using (
         or (
           public.current_user_is_active()
           and public.current_restaurant_is_active()
-          and (
-            not public.current_user_is_employee()
-            or ventas.fecha_dia = ((timezone('America/Bogota', now()))::date)
-          )
+          and public.current_user_can_read_report_date(ventas.fecha_dia)
         )
       )
   )

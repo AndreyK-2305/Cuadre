@@ -10,6 +10,7 @@ import {
   ChevronDown,
   LogOut,
   Megaphone,
+  MoreHorizontal,
   ReceiptText,
   Settings2,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   UserRound
 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
+import { getPlanDisplayName } from "@/lib/planLimits"
 import { acknowledgeAnnouncement, fetchPendingAnnouncements } from "@/lib/data/announcements"
 import { defaultSubscriptionPlans, fetchSubscriptionPlans } from "@/lib/data/restaurants"
 import { SalesModule } from "./SalesModule"
@@ -64,6 +66,7 @@ export function DashboardShell() {
   const [activeModule, setActiveModule] = useState<ActiveModule>("ventas")
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [mobileCartState, setMobileCartState] = useState<MobileCartState>({
     quantity: 0,
     total: 0,
@@ -74,6 +77,9 @@ export function DashboardShell() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>(defaultSubscriptionPlans)
   const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([])
   const [activeAnnouncement, setActiveAnnouncement] = useState<Announcement | null>(null)
+  const subscriptionLevel = profile?.restaurante?.nivel_suscripcion ?? null
+  const planLabel = canAccessAdmin ? "Vista global" : getPlanDisplayName(subscriptionLevel)
+  const profileName = profile?.nombre?.trim() || businessName
 
   const modules = useMemo(() => {
     if (canAccessAdmin) return superAdminModules
@@ -95,6 +101,7 @@ export function DashboardShell() {
 
   const showModule = (moduleId: ActiveModule) => {
     setSessionMenuOpen(false)
+    setMobileMoreOpen(false)
     setActiveModule(moduleId)
   }
 
@@ -121,6 +128,21 @@ export function DashboardShell() {
     : modules.length > 4
       ? "mobile-tabbar extended-mobile-tabbar"
       : "mobile-tabbar"
+  const mobilePrimaryModules = useMemo(() => {
+    const preferredModules = ["ventas", "egresos"] as ActiveModule[]
+    const primaryModules = preferredModules
+      .map((moduleId) => modules.find((module) => module.id === moduleId))
+      .filter((module): module is (typeof modules)[number] => Boolean(module))
+
+    if (primaryModules.length > 0) return primaryModules
+
+    return modules.slice(0, 2)
+  }, [modules])
+  const mobileSecondaryModules = useMemo(
+    () => modules.filter((module) => !mobilePrimaryModules.some((primary) => primary.id === module.id)),
+    [mobilePrimaryModules, modules]
+  )
+  const isMobileMoreActive = mobileSecondaryModules.some((module) => module.id === activeModule)
 
   const todayLabel = useMemo(
     () =>
@@ -195,7 +217,7 @@ export function DashboardShell() {
 
   const activeContent = useMemo(() => {
     if (canAccessAdmin && !modules.some((module) => module.id === activeModule)) {
-      return <ReportsModule refreshSignal={refreshSignal} isGlobal />
+      return <ReportsModule refreshSignal={refreshSignal} isGlobal businessName={businessName} />
     }
 
     if (!restaurantId && profile?.rol !== "SuperAdministrador") {
@@ -225,16 +247,27 @@ export function DashboardShell() {
         <InventoryModule
           restaurantId={restaurantId}
           readOnly={profile?.rol === "Empleado"}
+          subscriptionLevel={subscriptionLevel}
           onChanged={handleDataChanged}
         />
       )
     }
-    if (activeModule === "empleados") return <EmployeesModule restaurantId={restaurantId} isGlobal={canAccessAdmin} />
+    if (activeModule === "empleados") {
+      return <EmployeesModule restaurantId={restaurantId} subscriptionLevel={subscriptionLevel} isGlobal={canAccessAdmin} />
+    }
     if (activeModule === "egresos") {
       return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
     }
     if (activeModule === "reportes") {
-      return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} limitedToToday={profile?.rol === "Empleado"} />
+      return (
+        <ReportsModule
+          refreshSignal={refreshSignal}
+          isGlobal={canAccessAdmin}
+          limitedToToday={profile?.rol === "Empleado"}
+          subscriptionLevel={subscriptionLevel}
+          businessName={businessName}
+        />
+      )
     }
     return (
       <SalesModule
@@ -248,11 +281,13 @@ export function DashboardShell() {
     )
   }, [
     activeModule,
+    businessName,
     canAccessAdmin,
     cartOpenSignal,
     handleDataChanged,
     modules,
     profile?.nombre,
+    subscriptionLevel,
     profile?.rol,
     refreshSignal,
     restaurantId,
@@ -261,6 +296,7 @@ export function DashboardShell() {
 
   const openMobileCart = () => {
     setSessionMenuOpen(false)
+    setMobileMoreOpen(false)
     if (!mobileCartState.hasItems) return
     setCartOpenSignal((current) => current + 1)
   }
@@ -288,6 +324,10 @@ export function DashboardShell() {
         </div>
       </div>
       <p className="session-email" title={sessionLabel}>{sessionLabel}</p>
+      <div className="session-profile-details">
+        <span>{profileName}</span>
+        <strong>{planLabel}</strong>
+      </div>
       <button className="button session-signout" type="button" onClick={handleSignOut} disabled={isSigningOut}>
         <LogOut size={17} aria-hidden="true" />
         {isSigningOut ? "Cerrando sesion..." : "Cerrar sesion"}
@@ -355,8 +395,9 @@ export function DashboardShell() {
               <span className="sidebar-dot" aria-hidden="true" />
               <div>
                 <strong>{businessName}</strong>
-                <span className="sidebar-session-label">Cuenta</span>
+                <span className="sidebar-session-label">{profileName}</span>
                 <small title={sessionLabel}>{sessionLabel}</small>
+                <span className="sidebar-plan-label">{planLabel}</span>
               </div>
               <ChevronDown className="session-trigger-chevron" size={16} aria-hidden="true" />
             </button>
@@ -372,37 +413,14 @@ export function DashboardShell() {
 
       <section className="dashboard-main">
         <div className="mobile-command-bar" aria-label="Acciones rapidas moviles">
-          <div className="session-menu-container mobile-session-menu">
-            <button
-              className="mobile-session-chip session-trigger"
-              type="button"
-              onClick={() => setSessionMenuOpen((current) => !current)}
-              aria-expanded={sessionMenuOpen}
-              aria-haspopup="dialog"
-            >
-              <span className="sidebar-dot" aria-hidden="true" />
-              <div>
-                <strong>{businessName}</strong>
-                <small title={sessionLabel}>{sessionLabel}</small>
-              </div>
-              <ChevronDown className="session-trigger-chevron" size={15} aria-hidden="true" />
-            </button>
-            {sessionMenuOpen && sessionPopover}
+          <div className="mobile-session-chip mobile-session-summary" aria-label="Sesion actual">
+            <span className="sidebar-dot" aria-hidden="true" />
+            <div>
+              <strong>{businessName}</strong>
+              <small title={sessionLabel}>{sessionLabel}</small>
+              <span className="mobile-plan-label">{planLabel}</span>
+            </div>
           </div>
-
-          {activeModule === "ventas" && (
-            <button
-              className="button mobile-cart-button"
-              type="button"
-              onClick={openMobileCart}
-              disabled={!mobileCartState.hasItems}
-              aria-label={`Abrir carrito con ${mobileCartState.quantity} unidades`}
-            >
-              <ShoppingCart size={18} aria-hidden="true" />
-              <span>{mobileCartState.quantity}</span>
-              <strong>{formatCurrency(mobileCartState.total)}</strong>
-            </button>
-          )}
         </div>
 
         <header className="topbar" aria-label="Contexto del dashboard">
@@ -430,8 +448,49 @@ export function DashboardShell() {
         {activeContent}
       </section>
 
+      {activeModule === "ventas" && mobileCartState.hasItems && (
+        <button
+          className="button mobile-floating-cart"
+          type="button"
+          onClick={openMobileCart}
+          aria-label={`Abrir carrito con ${mobileCartState.quantity} productos por ${formatCurrency(mobileCartState.total)}`}
+        >
+          <ShoppingCart size={18} aria-hidden="true" />
+          <span>
+            {mobileCartState.quantity} {mobileCartState.quantity === 1 ? "producto" : "productos"} -{" "}
+            {formatCurrency(mobileCartState.total)}
+          </span>
+        </button>
+      )}
+
+      {mobileMoreOpen && (
+        <div className="mobile-more-menu" role="dialog" aria-label="Mas opciones">
+          {mobileSecondaryModules.map((module) => {
+            const Icon = module.icon
+            const isActive = activeModule === module.id
+
+            return (
+              <button
+                key={module.id}
+                type="button"
+                className={isActive ? "mobile-more-item active" : "mobile-more-item"}
+                onClick={() => showModule(module.id)}
+                aria-pressed={isActive}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{module.label}</span>
+              </button>
+            )
+          })}
+          <button className="mobile-more-item danger" type="button" onClick={handleSignOut} disabled={isSigningOut}>
+            <LogOut size={18} aria-hidden="true" />
+            <span>{isSigningOut ? "Cerrando sesion..." : "Cerrar sesion"}</span>
+          </button>
+        </div>
+      )}
+
       <nav className={mobileTabbarClass} aria-label="Modulos principales">
-        {modules.map((module) => {
+        {mobilePrimaryModules.map((module) => {
           const Icon = module.icon
           const isActive = activeModule === module.id
 
@@ -448,6 +507,16 @@ export function DashboardShell() {
             </button>
           )
         })}
+        <button
+          type="button"
+          className={isMobileMoreActive || mobileMoreOpen ? "mobile-tabbar-item active" : "mobile-tabbar-item"}
+          onClick={() => setMobileMoreOpen((current) => !current)}
+          aria-pressed={isMobileMoreActive || mobileMoreOpen}
+          aria-expanded={mobileMoreOpen}
+        >
+          <MoreHorizontal size={19} aria-hidden="true" />
+          <span>Mas</span>
+        </button>
       </nav>
 
       {activeAnnouncement && (
