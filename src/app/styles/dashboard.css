@@ -1788,7 +1788,7 @@ input:focus-visible,
   .dashboard-main {
     height: 100svh;
     overflow-y: auto;
-    padding: 0.75rem 0.85rem calc(5.85rem + env(safe-area-inset-bottom));
+    padding: 0.75rem 0.85rem calc(6.8rem + env(safe-area-inset-bottom));
     scroll-padding-top: 5rem;
     gap: 0.8rem;
   }
@@ -1825,10 +1825,24 @@ input:focus-visible,
   }
 
   .mobile-session-summary {
+    grid-template-columns: auto minmax(0, 1fr);
     border: 0;
     background: transparent;
     cursor: default;
     text-align: left;
+  }
+
+  .mobile-session-summary > div {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.12rem 0.65rem;
+    align-items: center;
+  }
+
+  .mobile-session-summary strong,
+  .mobile-session-summary small {
+    grid-column: 1;
   }
 
   .mobile-session-chip strong,
@@ -1853,7 +1867,11 @@ input:focus-visible,
   .mobile-plan-label {
     width: fit-content;
     display: inline-flex;
-    margin-top: 0.18rem;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: end;
+    margin-top: 0;
     border-radius: 999px;
     background: rgba(21, 94, 117, 0.1);
     color: var(--dashboard-accent);
@@ -1905,7 +1923,7 @@ input:focus-visible,
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
-    padding: 0.42rem;
+    padding: 0.55rem;
     border: 1px solid rgba(21, 94, 117, 0.16);
     border-radius: calc(var(--dashboard-radius) + 10px);
     background: rgba(255, 255, 255, 0.92);
@@ -1922,6 +1940,7 @@ input:focus-visible,
   }
 
   .mobile-tabbar-item {
+    min-height: 3.45rem;
     min-width: 0;
     border: 0;
     border-radius: calc(var(--dashboard-radius) + 2px);
@@ -1929,19 +1948,24 @@ input:focus-visible,
     color: var(--dashboard-muted);
     cursor: pointer;
     display: grid;
-    gap: 0.15rem;
+    gap: 0.24rem;
     justify-items: center;
-    padding: 0.55rem 0.25rem 0.48rem;
+    padding: 0.68rem 0.25rem 0.62rem;
     font: inherit;
-    font-size: 0.64rem;
-    font-weight: 750;
+    font-size: 0.72rem;
+    font-weight: 820;
     letter-spacing: 0;
     transition: background 220ms ease, color 220ms ease, transform 220ms ease;
   }
 
   .extended-mobile-tabbar .mobile-tabbar-item {
-    font-size: 0.64rem;
+    font-size: 0.72rem;
     padding-inline: 0.25rem;
+  }
+
+  .mobile-tabbar-item svg {
+    width: 22px;
+    height: 22px;
   }
 
   .mobile-tabbar-item.active {
@@ -1956,7 +1980,7 @@ input:focus-visible,
   .mobile-more-menu {
     position: fixed;
     right: 0.85rem;
-    bottom: calc(5.2rem + env(safe-area-inset-bottom));
+    bottom: calc(6.2rem + env(safe-area-inset-bottom));
     left: 0.85rem;
     z-index: 70;
     display: grid;
@@ -1996,7 +2020,7 @@ input:focus-visible,
   .mobile-floating-cart {
     position: fixed;
     right: 1.45rem;
-    bottom: calc(5rem + env(safe-area-inset-bottom));
+    bottom: calc(6.1rem + env(safe-area-inset-bottom));
     left: 1.45rem;
     z-index: 68;
     min-height: 2.85rem;
