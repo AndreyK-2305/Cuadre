@@ -1802,7 +1802,7 @@ input:focus-visible,
     top: 0.65rem;
     z-index: 50;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: 0.45rem;
     margin-bottom: 0.35rem;
@@ -1824,6 +1824,13 @@ input:focus-visible,
     color: var(--dashboard-text);
   }
 
+  .mobile-session-summary {
+    border: 0;
+    background: transparent;
+    cursor: default;
+    text-align: left;
+  }
+
   .mobile-session-chip strong,
   .mobile-session-chip small {
     display: block;
@@ -1841,6 +1848,19 @@ input:focus-visible,
   .mobile-session-chip small {
     color: var(--dashboard-muted);
     font-size: 0.69rem;
+  }
+
+  .mobile-plan-label {
+    width: fit-content;
+    display: inline-flex;
+    margin-top: 0.18rem;
+    border-radius: 999px;
+    background: rgba(21, 94, 117, 0.1);
+    color: var(--dashboard-accent);
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1;
+    padding: 0.28rem 0.48rem;
   }
 
   .mobile-cart-button,
@@ -1883,7 +1903,7 @@ input:focus-visible,
     left: 0.85rem;
     z-index: 60;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
     padding: 0.42rem;
     border: 1px solid rgba(21, 94, 117, 0.16);
@@ -1894,11 +1914,11 @@ input:focus-visible,
   }
 
   .mobile-tabbar.admin-mobile-tabbar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mobile-tabbar.extended-mobile-tabbar {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mobile-tabbar-item {
@@ -1920,8 +1940,8 @@ input:focus-visible,
   }
 
   .extended-mobile-tabbar .mobile-tabbar-item {
-    font-size: 0.58rem;
-    padding-inline: 0.12rem;
+    font-size: 0.64rem;
+    padding-inline: 0.25rem;
   }
 
   .mobile-tabbar-item.active {
@@ -1931,6 +1951,65 @@ input:focus-visible,
 
   .mobile-tabbar-item:active {
     transform: translateY(1px);
+  }
+
+  .mobile-more-menu {
+    position: fixed;
+    right: 0.85rem;
+    bottom: calc(5.2rem + env(safe-area-inset-bottom));
+    left: 0.85rem;
+    z-index: 70;
+    display: grid;
+    gap: 0.42rem;
+    padding: 0.55rem;
+    border: 1px solid rgba(21, 94, 117, 0.16);
+    border-radius: calc(var(--dashboard-radius) + 10px);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 44px rgba(22, 34, 31, 0.18);
+    backdrop-filter: blur(20px);
+  }
+
+  .mobile-more-item {
+    min-height: 2.8rem;
+    border: 0;
+    border-radius: calc(var(--dashboard-radius) + 2px);
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+    padding: 0.62rem 0.72rem;
+    background: transparent;
+    color: var(--dashboard-text);
+    font: inherit;
+    font-weight: 800;
+    text-align: left;
+  }
+
+  .mobile-more-item.active {
+    background: rgba(21, 94, 117, 0.12);
+    color: var(--dashboard-accent);
+  }
+
+  .mobile-more-item.danger {
+    color: #8f1d1d;
+  }
+
+  .mobile-floating-cart {
+    position: fixed;
+    right: 1.45rem;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    left: 1.45rem;
+    z-index: 68;
+    min-height: 2.85rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--dashboard-accent), #0f766e);
+    color: #ffffff;
+    box-shadow: 0 18px 44px rgba(21, 94, 117, 0.24);
+  }
+
+  .mobile-floating-cart span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sales-command-compact {
@@ -2005,7 +2084,7 @@ input:focus-visible,
   }
 
   .mobile-command-bar {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr);
     padding: 0.38rem;
   }
 
@@ -2014,13 +2093,19 @@ input:focus-visible,
     padding-inline: 0.2rem;
   }
 
-  .mobile-cart-button {
-    padding-inline: 0.52rem;
-  }
-
   .mobile-tabbar {
     right: 0.6rem;
     left: 0.6rem;
+  }
+
+  .mobile-more-menu {
+    right: 0.6rem;
+    left: 0.6rem;
+  }
+
+  .mobile-floating-cart {
+    right: 1rem;
+    left: 1rem;
   }
 }
 
