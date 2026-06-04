@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { buildPlanWhatsappHref, defaultPublicPlanName, getPublicPlan, publicPlans } from "@/lib/plans"
+import { HomeMobileShowcase } from "./HomeMobileShowcase"
 import { HomeSectionHeading } from "./HomeSectionHeading"
 
 export function HomeSalesExperience({ children }: { children: ReactNode }) {
@@ -20,6 +21,8 @@ export function HomeSalesExperience({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <HomeMobileShowcase />
+
       <section className="landing-band landing-plans" id="planes">
         <HomeSectionHeading
           eyebrow="Planes competitivos"
