@@ -7,7 +7,12 @@ type DataResponse<T> = {
 }
 
 export function fetchAdminAnnouncements() {
-  return supabase.from("avisos_admin").select("*").order("created_at", { ascending: false }).limit(100)
+  return supabase
+    .from("avisos_admin")
+    .select("*")
+    .order("priority", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(100)
 }
 
 export function createAnnouncement(payload: AnnouncementCreatePayload) {
@@ -46,6 +51,7 @@ export async function fetchPendingAnnouncements(): Promise<DataResponse<Announce
     .from("avisos_admin")
     .select("*")
     .eq("activo", true)
+    .order("priority", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(20)
 

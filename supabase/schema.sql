@@ -49,10 +49,14 @@ create table if not exists public.avisos_admin (
   target_type text not null check (target_type in ('restaurants', 'plan')),
   target_restaurante_ids uuid[] not null default '{}',
   target_plan text check (target_plan in ('Gratis', 'Basico', 'Completo', 'Emprendedor')),
+  priority integer not null default 0,
   activo boolean not null default true,
   created_by uuid default auth.uid() references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+alter table public.avisos_admin
+add column if not exists priority integer not null default 0;
 
 create table if not exists public.avisos_lecturas (
   aviso_id uuid not null references public.avisos_admin(id) on delete cascade,
@@ -424,6 +428,31 @@ begin
 end;
 $$;
 
+create or replace function public.create_restaurant_welcome_notice()
+returns trigger
+language plpgsql
+as $$
+begin
+  insert into public.avisos_admin (
+    titulo,
+    mensaje,
+    target_type,
+    target_restaurante_ids,
+    activo,
+    priority
+  ) values (
+    'Bienvenido a Cuadre',
+    'Gracias por escogernos. Esperamos acompañarte con cuentas cuadradas y una operacion mas tranquila, independiente del plan que hayas elegido.',
+    'restaurants',
+    array[new.id],
+    true,
+    100
+  );
+
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_productos_updated_at on public.productos;
 create trigger trg_productos_updated_at
 before update on public.productos
@@ -443,6 +472,11 @@ drop trigger if exists trg_restaurantes_plan_access_limits on public.restaurante
 create trigger trg_restaurantes_plan_access_limits
 after insert or update of nivel_suscripcion on public.restaurantes
 for each row execute function public.apply_restaurant_plan_access_limits();
+
+drop trigger if exists trg_restaurantes_welcome_notice on public.restaurantes;
+create trigger trg_restaurantes_welcome_notice
+after insert on public.restaurantes
+for each row execute function public.create_restaurant_welcome_notice();
 
 drop trigger if exists trg_restaurantes_updated_at on public.restaurantes;
 create trigger trg_restaurantes_updated_at

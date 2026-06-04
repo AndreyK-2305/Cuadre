@@ -22,6 +22,7 @@ export type Announcement = {
   target_type: AnnouncementTargetType
   target_restaurante_ids: string[]
   target_plan: SubscriptionLevel | null
+  priority: number
   activo: boolean
   created_at: string
 }
