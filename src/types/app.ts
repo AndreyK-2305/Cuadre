@@ -179,6 +179,7 @@ export type SaleInventoryConsumption = {
   cantidad: number
   origen: "receta" | "manual"
   nota: string | null
+  advertencia: string | null
   created_at: string
 }
 
@@ -226,4 +227,5 @@ export type RegisterSaleResult = {
   total: number
   dinero_recibido: number
   cambio: number
+  advertencias?: string[]
 }

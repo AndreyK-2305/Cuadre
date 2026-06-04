@@ -261,6 +261,13 @@ export function SalesModule({
         <div className="notice">
           {saleLabel(receipt.folio_diario, receipt.fecha_dia)} guardada por {sellerName}. Total:{" "}
           {formatCurrency(receipt.total)}. Cambio: {formatCurrency(receipt.cambio)}.
+          {receipt.advertencias && receipt.advertencias.length > 0 && (
+            <span className="sale-warning-list">
+              {receipt.advertencias.map((warning) => (
+                <span key={warning}>Advertencia: {warning}</span>
+              ))}
+            </span>
+          )}
         </div>
       )}
 
@@ -318,8 +325,11 @@ export function SalesModule({
                         className="button primary add-sale-button"
                         type="button"
                         onClick={() => addToCart(product)}
-                        disabled={stockState === "off"}
-                        title={stockState === "off" ? "Inventario asociado insuficiente" : `Agregar ${product.nombre}`}
+                        title={
+                          stockState === "off"
+                            ? "Se puede vender, pero el inventario asociado quedara negativo"
+                            : `Agregar ${product.nombre}`
+                        }
                       >
                         <Plus size={18} />
                         Agregar
@@ -595,6 +605,18 @@ function CheckoutModal({
                           </button>
                         </div>
                       ))}
+
+                      {consumptions.map((consumption, index) => {
+                        const inventory = inventoryItems.find((item) => item.id === consumption.inventario_id)
+                        if (!inventory || inventory.cantidad_stock >= consumption.cantidad) return null
+
+                        return (
+                          <p className="muted consumption-warning" key={`warning-${consumption.inventario_id}-${index}`}>
+                            {inventory.nombre} quedara en {inventory.cantidad_stock - consumption.cantidad}{" "}
+                            {inventory.tipo_unidad}. Se guardara como descuadre de inventario.
+                          </p>
+                        )
+                      })}
 
                       <button
                         className="button subtle"

@@ -874,8 +874,10 @@ function SaleDetails({ details }: { details: SaleItem[] }) {
           {detail.detalle_venta_inventario && detail.detalle_venta_inventario.length > 0 && (
             <div className="history-consumption-list">
               {detail.detalle_venta_inventario.map((consumption) => (
-                <span key={consumption.id}>
-                  {consumption.inventario_nombre}: {consumption.cantidad} ({consumption.origen})
+                <span className={consumption.advertencia ? "warning" : ""} key={consumption.id}>
+                  {consumption.inventario_nombre}: {consumption.cantidad}{" "}
+                  {consumption.origen === "manual" ? "(no se siguio la receta)" : "(receta)"}
+                  {consumption.advertencia ? ` - ${consumption.advertencia}` : ""}
                 </span>
               ))}
             </div>

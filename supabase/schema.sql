@@ -84,6 +84,9 @@ alter table public.productos
 add column if not exists tipo_item text not null default 'producto',
 add column if not exists restaurante_id uuid references public.restaurantes(id) on delete cascade;
 
+alter table public.productos
+drop constraint if exists productos_cantidad_stock_check;
+
 do $$
 begin
   if not exists (
@@ -258,8 +261,12 @@ create table if not exists public.detalle_venta_inventario (
   cantidad integer not null check (cantidad > 0),
   origen text not null default 'receta' check (origen in ('receta', 'manual')),
   nota text,
+  advertencia text,
   created_at timestamptz not null default now()
 );
+
+alter table public.detalle_venta_inventario
+add column if not exists advertencia text;
 
 create table if not exists public.movimientos_inventario (
   id uuid primary key default gen_random_uuid(),
@@ -622,6 +629,8 @@ declare
   v_inventory_id uuid;
   v_consumption_qty integer;
   v_consumption_note text;
+  v_consumption_warning text;
+  v_warnings jsonb := '[]'::jsonb;
   v_recipe record;
 begin
   if v_user is null then
@@ -748,6 +757,7 @@ begin
         v_inventory_id := (v_consumption ->> 'inventario_id')::uuid;
         v_consumption_qty := (v_consumption ->> 'cantidad')::integer;
         v_consumption_note := nullif(btrim(coalesce(v_consumption ->> 'nota', '')), '');
+        v_consumption_warning := null;
 
         if v_consumption_qty is null or v_consumption_qty <= 0 then
           raise exception 'La cantidad de inventario consumido no es valida';
@@ -772,7 +782,10 @@ begin
         end if;
 
         if v_inventory.cantidad_stock < v_consumption_qty then
-          raise exception 'Inventario insuficiente para %', v_inventory.nombre;
+          v_consumption_warning := 'Inventario insuficiente. El stock quedo en negativo.';
+          v_warnings := v_warnings || jsonb_build_array(
+            v_inventory.nombre || ' quedo en ' || (v_inventory.cantidad_stock - v_consumption_qty)::text
+          );
         end if;
 
         update public.productos
@@ -806,7 +819,8 @@ begin
           inventario_nombre,
           cantidad,
           origen,
-          nota
+          nota,
+          advertencia
         )
         values (
           v_sale.id,
@@ -816,7 +830,8 @@ begin
           v_inventory.nombre,
           v_consumption_qty,
           'manual',
-          v_consumption_note
+          v_consumption_note,
+          coalesce(v_consumption_warning, 'Consumo manual: no se siguio la receta configurada.')
         );
       end loop;
     else
@@ -829,6 +844,7 @@ begin
         order by inventario.nombre asc
       loop
         v_consumption_qty := v_recipe.cantidad * v_qty;
+        v_consumption_warning := null;
 
         select * into v_inventory
         from public.productos
@@ -849,7 +865,10 @@ begin
         end if;
 
         if v_inventory.cantidad_stock < v_consumption_qty then
-          raise exception 'Inventario insuficiente para %', v_inventory.nombre;
+          v_consumption_warning := 'Inventario insuficiente. El stock quedo en negativo.';
+          v_warnings := v_warnings || jsonb_build_array(
+            v_inventory.nombre || ' quedo en ' || (v_inventory.cantidad_stock - v_consumption_qty)::text
+          );
         end if;
 
         update public.productos
@@ -882,7 +901,8 @@ begin
           inventario_id,
           inventario_nombre,
           cantidad,
-          origen
+          origen,
+          advertencia
         )
         values (
           v_sale.id,
@@ -891,7 +911,8 @@ begin
           v_inventory.id,
           v_inventory.nombre,
           v_consumption_qty,
-          'receta'
+          'receta',
+          v_consumption_warning
         );
       end loop;
     end if;
@@ -904,7 +925,8 @@ begin
     'fecha_dia', v_sale.fecha_dia,
     'total', v_sale.total,
     'dinero_recibido', v_sale.dinero_recibido,
-    'cambio', v_sale.cambio
+    'cambio', v_sale.cambio,
+    'advertencias', v_warnings
   );
 end;
 $$;
@@ -1090,10 +1112,6 @@ begin
 
     if not found then
       raise exception 'El inventario asociado a la venta ya no existe';
-    end if;
-
-    if v_inventory.cantidad_stock < v_consumption.cantidad then
-      raise exception 'Inventario insuficiente para restaurar venta en %', v_inventory.nombre;
     end if;
 
     update public.productos

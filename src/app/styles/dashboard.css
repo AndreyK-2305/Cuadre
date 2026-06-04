@@ -351,6 +351,27 @@
   padding: 0.18rem 0.55rem;
 }
 
+.history-consumption-list span.warning,
+.consumption-warning,
+.sale-warning-list span {
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
+}
+
+.sale-warning-list {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+}
+
+.sale-warning-list span {
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 850;
+  padding: 0.2rem 0.58rem;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

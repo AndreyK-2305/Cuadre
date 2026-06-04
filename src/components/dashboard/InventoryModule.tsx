@@ -202,8 +202,8 @@ export function InventoryModule({
       return
     }
 
-    if (payload.precio < 0 || payload.cantidad_stock < 0) {
-      setError("Precio y cantidad deben ser valores positivos.")
+    if (payload.precio < 0 || (payload.tipo_item === "producto" && payload.cantidad_stock < 0)) {
+      setError("Precio y cantidad deben ser valores validos.")
       setSaving(false)
       return
     }
