@@ -826,8 +826,9 @@ using (user_id = auth.uid())
 with check (user_id = auth.uid());
 
 drop policy if exists "Autenticados gestionan productos" on public.productos;
-create policy "Autenticados gestionan productos"
-on public.productos for all
+drop policy if exists "Usuarios leen productos" on public.productos;
+create policy "Usuarios leen productos"
+on public.productos for select
 to authenticated
 using (
   public.is_super_admin()
@@ -836,11 +837,26 @@ using (
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
   )
+);
+
+drop policy if exists "Administradores gestionan productos" on public.productos;
+create policy "Administradores gestionan productos"
+on public.productos for all
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 )
 with check (
   public.is_super_admin()
   or (
-    restaurante_id = public.current_restaurant_id()
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
   )
@@ -947,8 +963,9 @@ using (
 );
 
 drop policy if exists "Autenticados gestionan movimientos" on public.movimientos_inventario;
-create policy "Autenticados gestionan movimientos"
-on public.movimientos_inventario for all
+drop policy if exists "Usuarios leen movimientos" on public.movimientos_inventario;
+create policy "Usuarios leen movimientos"
+on public.movimientos_inventario for select
 to authenticated
 using (
   public.is_super_admin()
@@ -957,11 +974,26 @@ using (
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
   )
+);
+
+drop policy if exists "Administradores gestionan movimientos" on public.movimientos_inventario;
+create policy "Administradores gestionan movimientos"
+on public.movimientos_inventario for all
+to authenticated
+using (
+  public.is_super_admin()
+  or (
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
+    and public.current_user_is_active()
+    and public.current_restaurant_is_active()
+  )
 )
 with check (
   public.is_super_admin()
   or (
-    restaurante_id = public.current_restaurant_id()
+    not public.current_user_is_employee()
+    and restaurante_id = public.current_restaurant_id()
     and public.current_user_is_active()
     and public.current_restaurant_is_active()
   )

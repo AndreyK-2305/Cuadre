@@ -220,7 +220,15 @@ export function DashboardShell() {
         </section>
       )
     }
-    if (activeModule === "inventario") return <InventoryModule restaurantId={restaurantId} onChanged={handleDataChanged} />
+    if (activeModule === "inventario") {
+      return (
+        <InventoryModule
+          restaurantId={restaurantId}
+          readOnly={profile?.rol === "Empleado"}
+          onChanged={handleDataChanged}
+        />
+      )
+    }
     if (activeModule === "empleados") return <EmployeesModule restaurantId={restaurantId} isGlobal={canAccessAdmin} />
     if (activeModule === "egresos") {
       return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
