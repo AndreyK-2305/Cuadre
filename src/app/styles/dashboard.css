@@ -1805,7 +1805,7 @@ input:focus-visible,
     grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: 0.45rem;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.8rem;
     padding: 0.48rem;
     border: 1px solid rgba(21, 94, 117, 0.16);
     border-radius: calc(var(--dashboard-radius) + 8px);
@@ -2110,6 +2110,7 @@ input:focus-visible,
   .mobile-command-bar {
     grid-template-columns: minmax(0, 1fr);
     padding: 0.38rem;
+    margin-bottom: 0.7rem;
   }
 
   .mobile-session-chip {
