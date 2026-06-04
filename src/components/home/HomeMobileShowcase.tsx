@@ -3,8 +3,8 @@
 import Image from "next/image"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 
-const mobileDesignSrc = encodeURI("/img/Dise\u00f1o movil.png")
-const desktopDesignSrc = encodeURI("/img/Dise\u00f1o escritorio.png")
+const mobileDesignSrc = encodeURI("/img/Dise\u00f1o movil.webp")
+const desktopDesignSrc = encodeURI("/img/Dise\u00f1o escritorio.webp")
 
 export function HomeMobileShowcase() {
   const sectionRef = useRef<HTMLElement | null>(null)
@@ -49,6 +49,7 @@ export function HomeMobileShowcase() {
             alt="Vista movil de Cuadre"
             fill
             sizes="(max-width: 640px) 90vw, (max-width: 1200px) 56vw, 460px"
+            quality={100}
             priority={false}
           />
         </div>
@@ -58,11 +59,13 @@ export function HomeMobileShowcase() {
             src={desktopDesignSrc}
             alt="Vista de escritorio de Cuadre"
             fill
-            sizes="(min-width: 981px) 1080px, 100vw"
+            sizes="(min-width: 981px) 1240px, 100vw"
+            quality={100}
             priority={false}
           />
         </div>
       </div>
+      <p className="landing-showcase-caption">Vista desde el aplicativo real</p>
     </section>
   )
 }
