@@ -61,6 +61,12 @@ export function useDashboardSession(options: DashboardSessionOptions = {}) {
 
       const nextProfile = normalizeProfile(profileData)
 
+      if (nextProfile.rol !== "SuperAdministrador" && !nextProfile.activo) {
+        setProfileError("Tu usuario esta deshabilitado. Contacta al administrador del emprendimiento.")
+        setLoading(false)
+        return
+      }
+
       if (nextProfile.rol !== "SuperAdministrador" && nextProfile.restaurante && !nextProfile.restaurante.activo) {
         setProfileError("El acceso de este emprendimiento esta suspendido. Contacta al administrador de Cuadre.")
         setLoading(false)
@@ -140,6 +146,7 @@ function normalizeProfile(data: unknown): UserProfile {
   const profile = data as UserProfile & { restaurante?: UserProfile["restaurante"] | UserProfile["restaurante"][] }
   return {
     ...profile,
+    activo: profile.activo ?? true,
     restaurante: Array.isArray(profile.restaurante) ? profile.restaurante[0] ?? null : profile.restaurante ?? null
   }
 }

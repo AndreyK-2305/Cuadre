@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Sparkles,
   ShoppingCart,
+  Users,
   UserRound
 } from "lucide-react"
 import { formatCurrency } from "@/lib/format"
@@ -24,10 +25,11 @@ import { SalesModule } from "./SalesModule"
 import { InventoryModule } from "./InventoryModule"
 import { ReportsModule } from "./ReportsModule"
 import { ExpensesModule } from "./ExpensesModule"
+import { EmployeesModule } from "./EmployeesModule"
 import { useDashboardSession } from "./useDashboardSession"
 import type { Announcement, MobileCartState, SubscriptionPlan } from "@/types/app"
 
-type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes" | "admin"
+type ActiveModule = "ventas" | "inventario" | "egresos" | "reportes" | "empleados" | "admin"
 
 const operatorModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "ventas", label: "Ventas", icon: ShoppingCart },
@@ -36,8 +38,14 @@ const operatorModules: { id: ActiveModule; label: string; icon: typeof ShoppingC
   { id: "reportes", label: "Reportes", icon: BarChart3 }
 ]
 
+const adminOperatorModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
+  ...operatorModules,
+  { id: "empleados", label: "Empleados", icon: Users }
+]
+
 const superAdminModules: { id: ActiveModule; label: string; icon: typeof ShoppingCart }[] = [
   { id: "reportes", label: "Reportes", icon: BarChart3 },
+  { id: "empleados", label: "Empleados", icon: Users },
   { id: "admin", label: "Admin", icon: Settings2 }
 ]
 
@@ -67,7 +75,11 @@ export function DashboardShell() {
   const [pendingAnnouncements, setPendingAnnouncements] = useState<Announcement[]>([])
   const [activeAnnouncement, setActiveAnnouncement] = useState<Announcement | null>(null)
 
-  const modules = useMemo(() => (canAccessAdmin ? superAdminModules : operatorModules), [canAccessAdmin])
+  const modules = useMemo(() => {
+    if (canAccessAdmin) return superAdminModules
+    if (profile?.rol === "Administrador") return adminOperatorModules
+    return operatorModules
+  }, [canAccessAdmin, profile?.rol])
 
   useEffect(() => {
     const hasActiveModule = modules.some((module) => module.id === activeModule)
@@ -96,13 +108,19 @@ export function DashboardShell() {
       return "Lectura global de ventas, caja y operaciones de los emprendimientos."
     }
     if (activeModule === "admin") return "Configuracion comercial, accesos y emprendimientos suscritos."
+    if (activeModule === "empleados") return canAccessAdmin ? "Gestion de empleados por emprendimiento seleccionado." : "Usuarios operativos con acceso limitado al trabajo diario."
     if (activeModule === "inventario") return "Existencias, ajustes y productos activos en una vista operativa."
     if (activeModule === "egresos") return "Gastos diarios listos para descontar del resultado de caja."
-    if (activeModule === "reportes") return canAccessAdmin ? "Lectura global de ventas, caja y operaciones de los emprendimientos." : "Ventas, caja y movimientos listos para consulta rapida."
+    if (activeModule === "reportes") return canAccessAdmin ? "Lectura global de ventas, caja y operaciones de los emprendimientos." : profile?.rol === "Empleado" ? "Consulta del resultado operativo del dia actual." : "Ventas, caja y movimientos listos para consulta rapida."
     return "Cobro rapido con catalogo visible y resumen de caja persistente."
-  }, [activeModule, canAccessAdmin, modules])
+  }, [activeModule, canAccessAdmin, modules, profile?.rol])
 
   const ActiveModuleIcon = activeModuleConfig.icon
+  const mobileTabbarClass = canAccessAdmin
+    ? "mobile-tabbar admin-mobile-tabbar"
+    : modules.length > 4
+      ? "mobile-tabbar extended-mobile-tabbar"
+      : "mobile-tabbar"
 
   const todayLabel = useMemo(
     () =>
@@ -203,10 +221,13 @@ export function DashboardShell() {
       )
     }
     if (activeModule === "inventario") return <InventoryModule restaurantId={restaurantId} onChanged={handleDataChanged} />
+    if (activeModule === "empleados") return <EmployeesModule restaurantId={restaurantId} isGlobal={canAccessAdmin} />
     if (activeModule === "egresos") {
       return <ExpensesModule restaurantId={restaurantId} refreshSignal={refreshSignal} onChanged={handleDataChanged} />
     }
-    if (activeModule === "reportes") return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} />
+    if (activeModule === "reportes") {
+      return <ReportsModule refreshSignal={refreshSignal} isGlobal={canAccessAdmin} limitedToToday={profile?.rol === "Empleado"} />
+    }
     return (
       <SalesModule
         restaurantId={restaurantId}
@@ -389,7 +410,7 @@ export function DashboardShell() {
         {activeContent}
       </section>
 
-      <nav className={canAccessAdmin ? "mobile-tabbar admin-mobile-tabbar" : "mobile-tabbar"} aria-label="Modulos principales">
+      <nav className={mobileTabbarClass} aria-label="Modulos principales">
         {modules.map((module) => {
           const Icon = module.icon
           const isActive = activeModule === module.id

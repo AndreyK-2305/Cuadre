@@ -26,10 +26,11 @@ import type { Expense, Product, Restaurant, Sale, SaleItem } from "@/types/app"
 
 type ReportsModuleProps = {
   isGlobal?: boolean
+  limitedToToday?: boolean
   refreshSignal: number
 }
 
-export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModuleProps) {
+export function ReportsModule({ isGlobal = false, limitedToToday = false, refreshSignal }: ReportsModuleProps) {
   const today = formatDateKey()
   const lastSevenDays = getDateDaysAgo(6)
   const currentMonth = getCurrentMonthPrefix()
@@ -51,6 +52,8 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
   const [activePreset, setActivePreset] = useState<ReportPreset>("today")
+  const reportDateFrom = limitedToToday ? today : dateFrom
+  const reportDateTo = limitedToToday ? today : dateTo
 
   useEffect(() => {
     if (!isGlobal) return
@@ -87,7 +90,7 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
     setLoading(true)
     setError("")
 
-    if (dateFrom && dateTo && dateFrom > dateTo) {
+    if (reportDateFrom && reportDateTo && reportDateFrom > reportDateTo) {
       setSales([])
       setExpenses([])
       setVoidedSales([])
@@ -108,10 +111,10 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
     }
 
     const reportRestaurantId = isGlobal ? selectedRestaurantId : undefined
-    const salesQuery = createSalesReportQuery(dateFrom, dateTo, reportRestaurantId)
-    const expensesQuery = createExpensesReportQuery(dateFrom, dateTo, reportRestaurantId)
-    const voidedSalesQuery = createVoidedSalesReportQuery(dateFrom, dateTo, reportRestaurantId)
-    const voidedExpensesQuery = createVoidedExpensesReportQuery(dateFrom, dateTo, reportRestaurantId)
+    const salesQuery = createSalesReportQuery(reportDateFrom, reportDateTo, reportRestaurantId)
+    const expensesQuery = createExpensesReportQuery(reportDateFrom, reportDateTo, reportRestaurantId)
+    const voidedSalesQuery = createVoidedSalesReportQuery(reportDateFrom, reportDateTo, reportRestaurantId)
+    const voidedExpensesQuery = createVoidedExpensesReportQuery(reportDateFrom, reportDateTo, reportRestaurantId)
     const productsQuery = reportRestaurantId ? fetchProductsByRestaurant(reportRestaurantId) : fetchProducts()
 
     const [
@@ -141,15 +144,15 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
     setVoidedExpenses((voidedExpensesData ?? []) as Expense[])
     setProducts((productData ?? []) as Product[])
     setLoading(false)
-  }, [dateFrom, dateTo, isGlobal, selectedRestaurantId])
+  }, [isGlobal, reportDateFrom, reportDateTo, selectedRestaurantId])
 
   useEffect(() => {
     void loadReports()
   }, [loadReports, refreshSignal])
 
   const metrics = useMemo(
-    () => buildReportMetrics(sales, expenses, dateFrom, dateTo),
-    [dateFrom, dateTo, expenses, sales]
+    () => buildReportMetrics(sales, expenses, reportDateFrom, reportDateTo),
+    [expenses, reportDateFrom, reportDateTo, sales]
   )
   const topProducts = useMemo(() => getTopProducts(sales), [sales])
   const selectedRestaurant = useMemo(
@@ -328,65 +331,75 @@ export function ReportsModule({ isGlobal = false, refreshSignal }: ReportsModule
           <div>
             <h2>{isGlobal ? "Filtro global" : "Filtro de ventas"}</h2>
             <p>
-              {isGlobal
+              {limitedToToday
+                ? "Tu usuario de empleado solo consulta ventas y egresos del dia actual."
+                : isGlobal
                 ? "Consulta la operacion consolidada por dia, semana, mes o historial completo."
                 : "Consulta ventas y egresos por dia, semana, mes o historial completo."}
             </p>
           </div>
         </div>
 
-        <div className="filter-grid">
-          <div className="field">
-            <label htmlFor="date-from">Desde</label>
-            <input
-              id="date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => handleDateFromChange(event.target.value)}
-            />
+        {limitedToToday ? (
+          <div className="metric report-day-lock">
+            <span>Periodo permitido</span>
+            <strong>{formatDateForReport(today)}</strong>
+            <small>Acceso operativo diario</small>
           </div>
+        ) : (
+          <div className="filter-grid">
+            <div className="field">
+              <label htmlFor="date-from">Desde</label>
+              <input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(event) => handleDateFromChange(event.target.value)}
+              />
+            </div>
 
-          <div className="field">
-            <label htmlFor="date-to">Hasta</label>
-            <input
-              id="date-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => handleDateToChange(event.target.value)}
-            />
-          </div>
+            <div className="field">
+              <label htmlFor="date-to">Hasta</label>
+              <input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(event) => handleDateToChange(event.target.value)}
+              />
+            </div>
 
-          <div className="actions-row filter-actions">
-            <button
-              className={`button subtle ${activePreset === "today" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPreset("today")}
-            >
-              Hoy
-            </button>
-            <button
-              className={`button subtle ${activePreset === "week" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPreset("week")}
-            >
-              7 dias
-            </button>
-            <button
-              className={`button subtle ${activePreset === "month" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPreset("month")}
-            >
-              Mes
-            </button>
-            <button
-              className={`button subtle ${activePreset === "all" ? "active" : ""}`}
-              type="button"
-              onClick={() => setPreset("all")}
-            >
-              Todo
-            </button>
+            <div className="actions-row filter-actions">
+              <button
+                className={`button subtle ${activePreset === "today" ? "active" : ""}`}
+                type="button"
+                onClick={() => setPreset("today")}
+              >
+                Hoy
+              </button>
+              <button
+                className={`button subtle ${activePreset === "week" ? "active" : ""}`}
+                type="button"
+                onClick={() => setPreset("week")}
+              >
+                7 dias
+              </button>
+              <button
+                className={`button subtle ${activePreset === "month" ? "active" : ""}`}
+                type="button"
+                onClick={() => setPreset("month")}
+              >
+                Mes
+              </button>
+              <button
+                className={`button subtle ${activePreset === "all" ? "active" : ""}`}
+                type="button"
+                onClick={() => setPreset("all")}
+              >
+                Todo
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       {loading && <div className="panel empty-state">Cargando reportes...</div>}

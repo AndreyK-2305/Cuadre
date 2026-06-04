@@ -1,4 +1,4 @@
-export type UserRole = "SuperAdministrador" | "Administrador"
+export type UserRole = "SuperAdministrador" | "Administrador" | "Empleado"
 
 export type SubscriptionLevel = "Gratis" | "Basico" | "Completo" | "Emprendedor"
 
@@ -54,7 +54,30 @@ export type UserProfile = {
   nombre: string | null
   rol: UserRole
   restaurante_id: string | null
+  activo: boolean
   restaurante?: Restaurant | null
+}
+
+export type EmployeeUser = {
+  user_id: string
+  email: string
+  nombre: string | null
+  rol: "Empleado"
+  restaurante_id: string
+  activo: boolean
+  created_at: string
+}
+
+export type EmployeeCreatePayload = {
+  restaurante_id?: string
+  email: string
+  nombre: string
+}
+
+export type EmployeeUpdatePayload = {
+  user_id: string
+  nombre?: string
+  activo?: boolean
 }
 
 export type Product = {

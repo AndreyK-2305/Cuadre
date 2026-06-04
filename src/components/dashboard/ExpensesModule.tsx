@@ -35,7 +35,7 @@ export function ExpensesModule({ restaurantId, refreshSignal, onChanged }: Expen
     setLoading(true)
     setError("")
 
-    const { data, error: loadError } = await createExpensesReportQuery(today, today)
+    const { data, error: loadError } = await createExpensesReportQuery(today, today, restaurantId)
 
     if (loadError) {
       setError(loadError.message)
@@ -45,7 +45,7 @@ export function ExpensesModule({ restaurantId, refreshSignal, onChanged }: Expen
 
     setExpenses((data ?? []) as Expense[])
     setLoading(false)
-  }, [today])
+  }, [restaurantId, today])
 
   useEffect(() => {
     void loadExpenses()

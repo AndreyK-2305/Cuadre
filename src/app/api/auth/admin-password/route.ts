@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js"
-import type { Restaurant } from "@/types/app"
+import type { Restaurant, UserProfile } from "@/types/app"
 
 type PasswordBody = {
   email?: string
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ isAuthorized: false, passwordPending: false })
   }
 
-  const account = await findAdminAccount(serviceClient.client, email)
+  const account = await findAuthorizedAccount(serviceClient.client, email)
 
   if ("error" in account) {
     return NextResponse.json({ isAuthorized: false, passwordPending: false })
@@ -51,10 +51,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ingresa correo y una contrasena de minimo 6 caracteres." }, { status: 400 })
   }
 
-  const account = await findAdminAccount(serviceClient.client, email)
+  const account = await findAuthorizedAccount(serviceClient.client, email)
 
   if ("error" in account || !account.restaurant) {
     return NextResponse.json({ error: "No hay un emprendimiento autorizado para este correo." }, { status: 404 })
+  }
+
+  const authorizedAccount = {
+    ...account,
+    restaurant: account.restaurant
   }
 
   if (!account.user) {
@@ -62,14 +67,14 @@ export async function POST(request: NextRequest) {
       email,
       password,
       email_confirm: true,
-      user_metadata: createAdminMetadata(account.restaurant.nombre, false)
+      user_metadata: createAccessMetadata(getAccountName(authorizedAccount), false)
     })
 
     if (error || !data.user) {
       return NextResponse.json({ error: error?.message ?? "No se pudo crear el acceso." }, { status: 400 })
     }
 
-    const { error: profileError } = await upsertAdminProfile(serviceClient.client, data.user.id, account.restaurant)
+    const { error: profileError } = await upsertAccessProfile(serviceClient.client, data.user.id, authorizedAccount, email)
 
     if (profileError) {
       await serviceClient.client.auth.admin.deleteUser(data.user.id)
@@ -85,14 +90,14 @@ export async function POST(request: NextRequest) {
 
   const { error } = await serviceClient.client.auth.admin.updateUserById(account.user.id, {
     password,
-    user_metadata: createAdminMetadata(account.restaurant.nombre, false)
+    user_metadata: createAccessMetadata(getAccountName(authorizedAccount), false)
   })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  await upsertAdminProfile(serviceClient.client, account.user.id, account.restaurant)
+  await upsertAccessProfile(serviceClient.client, account.user.id, authorizedAccount, email)
 
   return NextResponse.json({ ok: true })
 }
@@ -117,10 +122,48 @@ function getServiceClient() {
   }
 }
 
-async function findAdminAccount(
+async function findAuthorizedAccount(
   serviceClient: SupabaseClient,
   email: string
-): Promise<{ restaurant: Restaurant | null; user: User | null } | { error: string }> {
+): Promise<{
+  restaurant: Restaurant | null
+  user: User | null
+  profile: Pick<UserProfile, "user_id" | "email" | "nombre" | "rol" | "restaurante_id" | "activo"> | null
+} | { error: string }> {
+  const profileAccount = await findProfileAccount(serviceClient, email)
+
+  if ("error" in profileAccount) {
+    return { error: profileAccount.error }
+  }
+
+  if (profileAccount.profile) {
+    if (profileAccount.profile.rol === "SuperAdministrador") {
+      return { error: "Correo no autorizado para este acceso." }
+    }
+
+    const restaurant = await findRestaurantById(serviceClient, profileAccount.profile.restaurante_id)
+
+    if ("error" in restaurant) {
+      return { error: restaurant.error }
+    }
+
+    if (!profileAccount.profile.activo || !restaurant.restaurant?.activo) {
+      return { error: "Correo no autorizado para este acceso." }
+    }
+
+    const user = await getAuthUser(serviceClient, profileAccount.profile.user_id)
+
+    if ("error" in user) {
+      return { error: user.error }
+    }
+
+    return {
+      restaurant: restaurant.restaurant,
+      user: user.user,
+      profile: profileAccount.profile
+    }
+  }
+
   const { data: restaurant, error: restaurantError } = await serviceClient
     .from("restaurantes")
     .select("*")
@@ -153,7 +196,8 @@ async function findAdminAccount(
 
     return {
       restaurant: restaurant ?? null,
-      user: existingUser.user
+      user: existingUser.user,
+      profile: null
     }
   }
 
@@ -165,21 +209,83 @@ async function findAdminAccount(
 
   return {
     restaurant: restaurant ?? null,
-    user: data.user
+    user: data.user,
+    profile: null
   }
 }
 
-function upsertAdminProfile(serviceClient: SupabaseClient, userId: string, restaurant: Restaurant) {
+function upsertAccessProfile(
+  serviceClient: SupabaseClient,
+  userId: string,
+  account: {
+    restaurant: Restaurant
+    profile: Pick<UserProfile, "nombre" | "rol"> | null
+  },
+  email: string
+) {
   return serviceClient.from("usuarios").upsert(
     {
       user_id: userId,
-      email: restaurant.admin_email,
-      nombre: restaurant.nombre,
-      rol: "Administrador",
-      restaurante_id: restaurant.id
+      email,
+      nombre: account.profile?.nombre ?? account.restaurant.nombre,
+      rol: account.profile?.rol ?? "Administrador",
+      restaurante_id: account.restaurant.id,
+      activo: true
     },
     { onConflict: "user_id" }
   )
+}
+
+async function findProfileAccount(
+  serviceClient: SupabaseClient,
+  email: string
+): Promise<{
+  profile: Pick<UserProfile, "user_id" | "email" | "nombre" | "rol" | "restaurante_id" | "activo"> | null
+} | { error: string }> {
+  const { data, error } = await serviceClient
+    .from("usuarios")
+    .select("user_id, email, nombre, rol, restaurante_id, activo")
+    .ilike("email", email)
+    .limit(1)
+    .maybeSingle<Pick<UserProfile, "user_id" | "email" | "nombre" | "rol" | "restaurante_id" | "activo">>()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { profile: data }
+}
+
+async function findRestaurantById(
+  serviceClient: SupabaseClient,
+  restaurantId: string | null
+): Promise<{ restaurant: Restaurant | null } | { error: string }> {
+  if (!restaurantId) return { restaurant: null }
+
+  const { data, error } = await serviceClient
+    .from("restaurantes")
+    .select("*")
+    .eq("id", restaurantId)
+    .maybeSingle<Restaurant>()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { restaurant: data }
+}
+
+async function getAuthUser(
+  serviceClient: SupabaseClient,
+  userId: string
+): Promise<{ user: User | null } | { error: string }> {
+  const { data, error } = await serviceClient.auth.admin.getUserById(userId)
+
+  if (error && !error.message.toLowerCase().includes("not found")) {
+    return { error: error.message }
+  }
+
+  return { user: data.user ?? null }
 }
 
 async function findAuthUserByEmail(
@@ -219,7 +325,14 @@ function isPasswordPending(user: User) {
   return user.user_metadata?.cuadre_password_pending === true
 }
 
-function createAdminMetadata(name: string, passwordPending: boolean) {
+function getAccountName(account: {
+  restaurant: Restaurant
+  profile: Pick<UserProfile, "nombre"> | null
+}) {
+  return account.profile?.nombre ?? account.restaurant.nombre
+}
+
+function createAccessMetadata(name: string, passwordPending: boolean) {
   return {
     name,
     cuadre_password_pending: passwordPending

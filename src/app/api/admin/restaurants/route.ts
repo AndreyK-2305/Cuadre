@@ -310,7 +310,8 @@ function upsertAdminProfile(serviceClient: SupabaseClient, userId: string, resta
       email: restaurant.admin_email,
       nombre: restaurant.nombre,
       rol: "Administrador",
-      restaurante_id: restaurant.id
+      restaurante_id: restaurant.id,
+      activo: true
     },
     { onConflict: "user_id" }
   )

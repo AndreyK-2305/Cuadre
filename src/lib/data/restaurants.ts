@@ -27,7 +27,7 @@ export async function fetchCurrentUserProfile(): Promise<DataResponse<UserProfil
 
   const { data, error } = await supabase
     .from("usuarios")
-    .select("user_id, email, nombre, rol, restaurante_id, restaurante:restaurantes(*)")
+    .select("user_id, email, nombre, rol, restaurante_id, activo, restaurante:restaurantes(*)")
     .eq("user_id", userId)
     .maybeSingle()
 
@@ -153,7 +153,8 @@ function syncRestaurantAdmin(restaurantId: string, adminEmail: string) {
     .from("usuarios")
     .update({
       restaurante_id: restaurantId,
-      rol: "Administrador"
+      rol: "Administrador",
+      activo: true
     })
     .ilike("email", adminEmail)
 }

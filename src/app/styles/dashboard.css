@@ -639,6 +639,10 @@
   gap: 16px;
 }
 
+.report-day-lock {
+  width: min(100%, 360px);
+}
+
 .filter-title {
   display: flex;
   gap: 10px;
@@ -1836,6 +1840,10 @@ input:focus-visible,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .mobile-tabbar.extended-mobile-tabbar {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .mobile-tabbar-item {
     min-width: 0;
     border: 0;
@@ -1852,6 +1860,11 @@ input:focus-visible,
     font-weight: 750;
     letter-spacing: 0;
     transition: background 220ms ease, color 220ms ease, transform 220ms ease;
+  }
+
+  .extended-mobile-tabbar .mobile-tabbar-item {
+    font-size: 0.58rem;
+    padding-inline: 0.12rem;
   }
 
   .mobile-tabbar-item.active {
@@ -2407,6 +2420,10 @@ input:focus-visible,
   border-radius: 8px;
   background: var(--surface);
   padding: 12px;
+}
+
+.employee-row {
+  grid-template-columns: minmax(220px, 1fr) auto minmax(130px, 0.35fr) minmax(260px, auto);
 }
 
 .restaurant-row-main {
